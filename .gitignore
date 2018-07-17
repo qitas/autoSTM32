@@ -1,0 +1,6 @@
+
+/STM32/MDK/DebugConfig/*
+/STM32/MDK/List/*
+/STM32/MDK/Obj/*
+/STM32/MDK/*.uvgu*
+/STM32/MDK/*.uvopt*
