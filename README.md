@@ -1,4 +1,4 @@
-﻿[![sites](adv/Qi.png)](http://www.qitas.cn)
+﻿[![sites](docs/Qi.png)](http://www.qitas.cn)
 
 #  project
 
@@ -10,15 +10,16 @@
 
 ## 组成
 
-包括标准的编译器和编译文件
+
+包括标准的编译器和编译文件，添加的工程文件是trezor开源项目，包罗万千
 
 
 ---
+
 ## 说明
 
-2018-10-12: 定义和规范仓库
+2018-10-22: 增加经典的代码，还没有修改
 
+---
 
-
-[![sites](adv/qitas.jpg)](http://www.qitas.cn)
-#  Qitas 为锻造最美之器
+##  Qitas 为锻造最美之器

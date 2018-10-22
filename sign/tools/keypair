@@ -1,0 +1,15 @@
+#!/usr/bin/env python2
+import ed25519
+import os
+
+signing_key, verifying_key = ed25519.create_keypair(entropy=os.urandom)
+#open("ed25519-key","wb").write(signing_key.to_bytes())
+open("ed25519-key","wb").write("secret key :\n")
+open("ed25519-key","a").write(signing_key.to_ascii(encoding="hex"))
+skey_hex = signing_key.to_ascii(encoding="hex")
+print "the secret key is", skey_hex
+open("ed25519-key","a").write("\npublic key :\n")
+open("ed25519-key","a").write(verifying_key.to_ascii(encoding="hex"))
+vkey_hex = verifying_key.to_ascii(encoding="hex")
+print "the public key is", vkey_hex
+
