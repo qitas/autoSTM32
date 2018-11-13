@@ -43,15 +43,31 @@
 
 int main(void)
 {
+    // reinitialize HAL for Trezor One
+#if TREZOR_MODEL == 1
+    HAL_Init();
+#endif
+
+#if TREZOR_MODEL == T
     // Enable MPU
     mpu_config();
+#endif
 
     // Init peripherals
     pendsv_init();
+
+#if TREZOR_MODEL == 1
+    display_init();
+    touch_init();
+#endif
+
+#if TREZOR_MODEL == T
     sdcard_init();
     touch_init();
+    touch_power_on();
 
     display_clear();
+#endif
 
     printf("CORE: Preparing stack\n");
     // Stack limit should be less than real stack size, so we have a chance
@@ -70,12 +86,8 @@ int main(void)
     mp_obj_list_init(mp_sys_path, 0);
     mp_obj_list_append(mp_sys_path, MP_OBJ_NEW_QSTR(MP_QSTR_)); // current dir (or base dir of the script)
 
-    // Set optimization level
-    MP_STATE_VM(mp_optimise_value) = PYOPT;
-
     // Execute the main script
     printf("CORE: Executing main script\n");
-    //hal_delay(1000); // test printf:sure, it don't show on display 
     pyexec_frozen_module("main.py");
 
     // Clean up

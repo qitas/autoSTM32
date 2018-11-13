@@ -23,6 +23,8 @@
 
 #if MICROPY_PY_TREZORUTILS
 
+#include "embed/extmod/trezorobj.h"
+
 #include <string.h>
 #include "common.h"
 
@@ -67,22 +69,14 @@ STATIC mp_obj_t mod_trezorutils_memcpy(size_t n_args, const mp_obj_t *args) {
 
     mp_buffer_info_t dst;
     mp_get_buffer_raise(args[0], &dst, MP_BUFFER_WRITE);
-    int dst_ofs = mp_obj_get_int(args[1]);
-    if (dst_ofs < 0) {
-        mp_raise_ValueError("Invalid dst offset (has to be >= 0)");
-    }
+    uint32_t dst_ofs = trezor_obj_get_uint(args[1]);
 
     mp_buffer_info_t src;
     mp_get_buffer_raise(args[2], &src, MP_BUFFER_READ);
-    int src_ofs = mp_obj_get_int(args[3]);
-    if (src_ofs < 0) {
-        mp_raise_ValueError("Invalid src offset (has to be >= 0)");
-    }
+    uint32_t src_ofs = trezor_obj_get_uint(args[3]);
 
-    int n = mp_obj_get_int(args[4]);
-    if (n < 0) {
-        mp_raise_ValueError("Invalid byte count (has to be >= 0)");
-    }
+    uint32_t n = trezor_obj_get_uint(args[4]);
+
     size_t dst_rem = (dst_ofs < dst.len) ? dst.len - dst_ofs : 0;
     size_t src_rem = (src_ofs < src.len) ? src.len - src_ofs : 0;
     size_t ncpy = MIN(n, MIN(src_rem, dst_rem));
@@ -113,7 +107,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_trezorutils_halt_obj, 0, 1, mod_t
 ///     Set unprivileged mode.
 ///     '''
 STATIC mp_obj_t mod_trezorutils_set_mode_unprivileged(void) {
-#if defined TREZOR_MODEL_T
+#ifndef TREZOR_EMULATOR
     __asm__ volatile("msr control, %0" :: "r" (0x1));
     __asm__ volatile("isb");
 #endif
@@ -121,45 +115,8 @@ STATIC mp_obj_t mod_trezorutils_set_mode_unprivileged(void) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(mod_trezorutils_set_mode_unprivileged_obj, mod_trezorutils_set_mode_unprivileged);
 
-/// def symbol(name: str) -> str/int/None:
-///     '''
-///     Retrieve internal symbol.
-///     '''
-STATIC mp_obj_t mod_trezorutils_symbol(mp_obj_t name) {
-    mp_buffer_info_t str;
-    mp_get_buffer_raise(name, &str, MP_BUFFER_READ);
-    if (0 == strncmp(str.buf, "GITREV", str.len)) {
-#define XSTR(s) STR(s)
-#define STR(s) #s
-        return mp_obj_new_str(XSTR(GITREV), strlen(XSTR(GITREV)), false);
-    }
-    if (0 == strncmp(str.buf, "VERSION_MAJOR", str.len)) {
-        return mp_obj_new_int(VERSION_MAJOR);
-    }
-    if (0 == strncmp(str.buf, "VERSION_MINOR", str.len)) {
-        return mp_obj_new_int(VERSION_MINOR);
-    }
-    if (0 == strncmp(str.buf, "VERSION_PATCH", str.len)) {
-        return mp_obj_new_int(VERSION_PATCH);
-    }
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(mod_trezorutils_symbol_obj, mod_trezorutils_symbol);
-
-/// def model() -> str:
-///     '''
-///     Return which hardware model we are running on.
-///     '''
-STATIC mp_obj_t mod_trezorutils_model(void) {
-    const char *model = NULL;
-#if defined TREZOR_MODEL_T
-    model = "T";
-#elif defined TREZOR_MODEL_EMU
-    model = "EMU";
-#endif
-    return model ? mp_obj_new_str(model, strlen(model), false) : mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(mod_trezorutils_model_obj, mod_trezorutils_model);
+#define PASTER(s) MP_QSTR_ ## s
+#define MP_QSTR(s) PASTER(s)
 
 STATIC const mp_rom_map_elem_t mp_module_trezorutils_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_trezorutils) },
@@ -167,8 +124,17 @@ STATIC const mp_rom_map_elem_t mp_module_trezorutils_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_memcpy), MP_ROM_PTR(&mod_trezorutils_memcpy_obj) },
     { MP_ROM_QSTR(MP_QSTR_halt), MP_ROM_PTR(&mod_trezorutils_halt_obj) },
     { MP_ROM_QSTR(MP_QSTR_set_mode_unprivileged), MP_ROM_PTR(&mod_trezorutils_set_mode_unprivileged_obj) },
-    { MP_ROM_QSTR(MP_QSTR_symbol), MP_ROM_PTR(&mod_trezorutils_symbol_obj) },
-    { MP_ROM_QSTR(MP_QSTR_model), MP_ROM_PTR(&mod_trezorutils_model_obj) },
+    // various built-in constants
+    { MP_ROM_QSTR(MP_QSTR_GITREV), MP_ROM_QSTR(MP_QSTR(GITREV)) },
+    { MP_ROM_QSTR(MP_QSTR_VERSION_MAJOR), MP_OBJ_NEW_SMALL_INT(VERSION_MAJOR) },
+    { MP_ROM_QSTR(MP_QSTR_VERSION_MINOR), MP_OBJ_NEW_SMALL_INT(VERSION_MINOR) },
+    { MP_ROM_QSTR(MP_QSTR_VERSION_PATCH), MP_OBJ_NEW_SMALL_INT(VERSION_PATCH) },
+    { MP_ROM_QSTR(MP_QSTR_MODEL), MP_ROM_QSTR(MP_QSTR(TREZOR_MODEL)) },
+#ifdef TREZOR_EMULATOR
+    { MP_ROM_QSTR(MP_QSTR_EMULATOR), mp_const_true },
+#else
+    { MP_ROM_QSTR(MP_QSTR_EMULATOR), mp_const_false },
+#endif
 };
 
 STATIC MP_DEFINE_CONST_DICT(mp_module_trezorutils_globals, mp_module_trezorutils_globals_table);

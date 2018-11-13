@@ -95,7 +95,7 @@ secbool load_image_header(const uint8_t * const data, const uint32_t magic, cons
 secbool load_vendor_header(const uint8_t * const data, uint8_t key_m, uint8_t key_n, const uint8_t * const *keys, vendor_header * const vhdr)
 {
     memcpy(&vhdr->magic, data, 4);
-    if (vhdr->magic != VENDOR_HEAD_MAGIC) return secfalse; // TRZV
+    if (vhdr->magic != 0x565A5254) return secfalse; // TRZV
 
     memcpy(&vhdr->hdrlen, data + 4, 4);
     if (vhdr->hdrlen > 64 * 1024) return secfalse;

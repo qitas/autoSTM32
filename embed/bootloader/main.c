@@ -19,24 +19,33 @@
 
 #include <string.h>
 #include <sys/types.h>
-#include "display.h"
+
 #include "common.h"
 #include "image.h"
 #include "flash.h"
+#include "display.h"
 #include "mini_printf.h"
 #include "rng.h"
 #include "secbool.h"
 #include "touch.h"
 #include "usb.h"
 #include "version.h"
-#include "vendorkeys.h"
+
 #include "bootui.h"
 #include "messages.h"
 // #include "mpu.h"
 
 const uint8_t BOOTLOADER_KEY_M = 2;
 const uint8_t BOOTLOADER_KEY_N = 3;
-
+static const uint8_t * const BOOTLOADER_KEYS[] = {
+    (const uint8_t *)"\xc2\xc8\x7a\x49\xc5\xa3\x46\x09\x77\xfb\xb2\xec\x9d\xfe\x60\xf0\x6b\xd6\x94\xdb\x82\x44\xbd\x49\x81\xfe\x3b\x7a\x26\x30\x7f\x3f",
+    (const uint8_t *)"\x80\xd0\x36\xb0\x87\x39\xb8\x46\xf4\xcb\x77\x59\x30\x78\xde\xb2\x5d\xc9\x48\x7a\xed\xcf\x52\xe3\x0b\x4f\xb7\xcd\x70\x24\x17\x8a",
+    (const uint8_t *)"\xb8\x30\x7a\x71\xf5\x52\xc6\x0a\x4c\xbb\x31\x7f\xf4\x8b\x82\xcd\xbf\x6b\x6b\xb5\xf0\x4c\x92\x0f\xec\x7b\xad\xf0\x17\x88\x37\x51",
+// comment the lines above and uncomment the lines below to use a custom signed vendorheader
+//    (const uint8_t *)"\xd7\x59\x79\x3b\xbc\x13\xa2\x81\x9a\x82\x7c\x76\xad\xb6\xfb\xa8\xa4\x9a\xee\x00\x7f\x49\xf2\xd0\x99\x2d\x99\xb8\x25\xad\x2c\x48",
+//    (const uint8_t *)"\x63\x55\x69\x1c\x17\x8a\x8f\xf9\x10\x07\xa7\x47\x8a\xfb\x95\x5e\xf7\x35\x2c\x63\xe7\xb2\x57\x03\x98\x4c\xf7\x8b\x26\xe2\x1a\x56",
+//    (const uint8_t *)"\xee\x93\xa4\xf6\x6f\x8d\x16\xb8\x19\xbb\x9b\xeb\x9f\xfc\xcd\xfc\xdc\x14\x12\xe8\x7f\xee\x6a\x32\x4c\x2a\x99\xa1\xe0\xe6\x71\x48",
+};
 
 #define USB_IFACE_NUM   0
 
@@ -49,11 +58,12 @@ static void usb_init_all(void) {
         .vendor_id       = 0x1209,
         .product_id      = 0x53C0,
         .release_num     = 0x0200,
-        .manufacturer    = "OZ",
-        .product         = "Wallet",
-        .serial_number   = "000000000000000000000001",
+        .manufacturer    = "SatoshiLabs",
+        .product         = "TREZOR",
+        .serial_number   = "000000000000000000000000",
         .interface       = "TREZOR Interface",
         .usb21_enabled   = sectrue,
+        .usb21_landing   = sectrue,
     };
 
     static uint8_t rx_buffer[USB_PACKET_SIZE];
@@ -219,16 +229,19 @@ static void check_bootloader_version(void)
 int main(void)
 {
 main_start:
+    display_clear();
+
 #if PRODUCTION
     check_bootloader_version();
 #endif
 
     touch_init();
+    touch_power_on();
 
     // delay to detect touch
     uint32_t touched = 0;
     for (int i = 0; i < 100; i++) {
-        touched = touch_read();
+        touched = touch_is_detected() | touch_read();
         if (touched) {
             break;
         }
@@ -242,24 +255,16 @@ main_start:
     // detect whether the devices contains a valid firmware
 
     firmware_present = load_vendor_header_keys((const uint8_t *)FIRMWARE_START, &vhdr);
-    if (sectrue == firmware_present) 
-    {
+    if (sectrue == firmware_present) {
         firmware_present = check_vendor_keys_lock(&vhdr);
-        //display_printf("get firmware_present :%d",(int)firmware_present);
     }
-    //hal_delay(1000);
-    if (sectrue == firmware_present) 
-    {
+    if (sectrue == firmware_present) {
         firmware_present = load_image_header((const uint8_t *)(FIRMWARE_START + vhdr.hdrlen), FIRMWARE_IMAGE_MAGIC, FIRMWARE_IMAGE_MAXSIZE, vhdr.vsig_m, vhdr.vsig_n, vhdr.vpub, &hdr);
-		//display_printf("get firmware_present :%d",(int)firmware_present);
     }
-    //hal_delay(1000);
-    if (sectrue == firmware_present) 
-    {
+    if (sectrue == firmware_present) {
         firmware_present = check_image_contents(&hdr, IMAGE_HEADER_SIZE + vhdr.hdrlen, firmware_sectors, FIRMWARE_SECTORS_COUNT);
-		//display_printf("get firmware_present :%d",(int)firmware_present);
     }
-    //firmware_present = secfalse;	//just for test the boot ui.
+
     // start the bootloader if no or broken firmware found ...
     if (firmware_present != sectrue) {
         // show intro animation
@@ -279,6 +284,13 @@ main_start:
         ui_fadeout();
         ui_screen_third();
         ui_fadein();
+
+        // erase storage
+        static const uint8_t sectors_storage[] = {
+            FLASH_SECTOR_STORAGE_1,
+            FLASH_SECTOR_STORAGE_2,
+        };
+        ensure(flash_erase_sectors(sectors_storage, sizeof(sectors_storage), NULL), NULL);
 
         // and start the usb loop
         if (bootloader_usb_loop(NULL, NULL) != sectrue) {
@@ -328,7 +340,6 @@ main_start:
         }
     }
 
-#if 1
     ensure(
         load_vendor_header_keys((const uint8_t *)FIRMWARE_START, &vhdr),
         "invalid vendor header");
@@ -344,10 +355,9 @@ main_start:
     ensure(
         check_image_contents(&hdr, IMAGE_HEADER_SIZE + vhdr.hdrlen, firmware_sectors, FIRMWARE_SECTORS_COUNT),
         "invalid firmware hash");
-#endif
 
     // if all VTRUST flags are unset = ultimate trust => skip the procedure
-#if 1
+
     if ((vhdr.vtrust & VTRUST_ALL) != VTRUST_ALL) {
 
         // ui_fadeout();  // no fadeout - we start from black screen
@@ -372,7 +382,7 @@ main_start:
 
         ui_fadeout();
     }
-#endif
+
     // mpu_config();
     // jump_to_unprivileged(FIRMWARE_START + vhdr.hdrlen + IMAGE_HEADER_SIZE);
 

@@ -24,3 +24,9 @@ def halt(msg: str = None) -> None:
     '''
     Halts execution.
     '''
+
+# extmod/modtrezorutils/modtrezorutils.c
+def set_mode_unprivileged() -> None:
+    '''
+    Set unprivileged mode.
+    '''

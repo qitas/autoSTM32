@@ -1,6 +1,7 @@
 from micropython import const
-from trezor import loop, ui, res
-from trezor.ui.swipe import Swipe, SWIPE_UP, SWIPE_DOWN, SWIPE_VERTICAL
+
+from trezor import loop, res, ui
+from trezor.ui.swipe import SWIPE_DOWN, SWIPE_UP, SWIPE_VERTICAL, Swipe
 
 if __debug__:
     from apps.debug import swipe_signal
@@ -16,7 +17,7 @@ async def change_page(page, page_count):
             d = SWIPE_VERTICAL
         swipe = Swipe(directions=d)
         if __debug__:
-            s = await loop.wait(swipe, swipe_signal)
+            s = await loop.spawn(swipe, swipe_signal)
         else:
             s = await swipe
         if s == SWIPE_UP:
@@ -29,7 +30,7 @@ async def paginate(render_page, page_count, page=0, *args):
     while True:
         changer = change_page(page, page_count)
         renderer = render_page(page, page_count, *args)
-        waiter = loop.wait(changer, renderer)
+        waiter = loop.spawn(changer, renderer)
         result = await waiter
         if changer in waiter.finished:
             page = result
@@ -41,7 +42,7 @@ async def animate_swipe():
     time_delay = const(40000)
     draw_delay = const(200000)
 
-    ui.display.text_center(130, 220, 'Swipe', ui.BOLD, ui.GREY, ui.BG)
+    ui.display.text_center(130, 220, "Swipe", ui.BOLD, ui.GREY, ui.BG)
 
     sleep = loop.sleep(time_delay)
     icon = res.load(ui.ICON_SWIPE)
@@ -64,14 +65,11 @@ def render_scrollbar(page, page_count):
 
     for i in range(0, page_count):
         if i != page:
-            ui.display.bar_radius(x, y + i * padding, size,
-                                  size, ui.GREY, ui.BG, 4)
-    ui.display.bar_radius(x, y + page * padding, size,
-                          size, ui.FG, ui.BG, 4)
+            ui.display.bar_radius(x, y + i * padding, size, size, ui.GREY, ui.BG, 4)
+    ui.display.bar_radius(x, y + page * padding, size, size, ui.FG, ui.BG, 4)
 
 
 class Scrollpage(ui.Widget):
-
     def __init__(self, content, page, page_count):
         self.content = content
         self.page = page
@@ -82,4 +80,4 @@ class Scrollpage(ui.Widget):
         render_scrollbar(self.page, self.page_count)
 
     async def __iter__(self):
-        return await loop.wait(super().__iter__(), self.content)
+        return await loop.spawn(super().__iter__(), self.content)

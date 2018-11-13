@@ -34,12 +34,9 @@
 #include "icon_install.h"
 #include "icon_wipe.h"
 
+#include "icon_logo.h"
 #include "icon_safeplace.h"
-#include "yimi.h"
-#include "grey.h"
-#include "oazon.h"
-//#include "icon_logo.h"
-//#include "icon_welcome.h"
+#include "icon_welcome.h"
 
 #define BACKLIGHT_NORMAL 150
 
@@ -120,24 +117,20 @@ void ui_screen_boot_click(void) {
 
 void ui_screen_first(void)
 {
-    display_bar(0, 0, DISPLAY_RESX, DISPLAY_RESY, COLOR_WHITE);
-    display_icon((DISPLAY_RESX - 200) / 2, (DISPLAY_RESY - 60) / 2, 200, 60, toi_icon_safeplace + 12, sizeof(toi_icon_safeplace) - 12, COLOR_BLACK, COLOR_WHITE);
+    display_icon(0, 0, 240, 240, toi_icon_logo + 12, sizeof(toi_icon_logo) - 12, COLOR_BLACK, COLOR_WHITE);
 }
 
 void ui_screen_second(void)
 {
-    //display_icon(0, 0, 240, 240, toi_icon_logo + 12, sizeof(toi_icon_logo) - 12, COLOR_BLACK, COLOR_WHITE);
     display_bar(0, 0, DISPLAY_RESX, DISPLAY_RESY, COLOR_WHITE);
-    display_text_center(120, 50, "Oazon Wallet", -1, FONT_NORMAL, COLOR_BLACK, COLOR_WHITE);
-    display_icon((DISPLAY_RESX - 144) / 2, (DISPLAY_RESY - 144) / 2 - 5, 144, 144, toi_yimi + 12, sizeof(toi_yimi) - 12, COLOR_WHITE ,COLOR_BLACK);
+    display_icon((DISPLAY_RESX - 200) / 2, (DISPLAY_RESY - 60) / 2, 200, 60, toi_icon_safeplace + 12, sizeof(toi_icon_safeplace) - 12, COLOR_BLACK, COLOR_WHITE);
 }
 
 void ui_screen_third(void)
 {
     display_bar(0, 0, DISPLAY_RESX, DISPLAY_RESY, COLOR_WHITE);
-    //display_text_center(120, 50, "Wallet", -1, FONT_NORMAL, COLOR_BLACK, COLOR_WHITE);
-    display_icon((DISPLAY_RESX - 144) / 2, (DISPLAY_RESY - 144) / 2 - 5, 144, 144, toi_oazon + 12, sizeof(toi_oazon) - 12, COLOR_WHITE ,COLOR_BLACK);
-    display_text_center(120, (DISPLAY_RESY - 60), "www.oazon.com/wallet", -1, FONT_NORMAL, COLOR_BLACK, COLOR_WHITE);
+    display_icon((DISPLAY_RESX - 180) / 2, (DISPLAY_RESY - 30) / 2 - 5, 180, 30, toi_icon_welcome + 12, sizeof(toi_icon_welcome) - 12, COLOR_BLACK, COLOR_WHITE);
+    display_text_center(120, 220, "Go to trezor.io/start", -1, FONT_NORMAL, COLOR_BLACK, COLOR_WHITE);
 }
 
 // info UI
@@ -162,7 +155,7 @@ void ui_screen_info(secbool buttons, const vendor_header * const vhdr, const ima
         display_text_center(120, 170, "Connect to host?", -1, FONT_NORMAL, COLOR_BLACK, COLOR_WHITE);
         ui_confirm_cancel_buttons();
     } else {
-        display_text_center(120, 220, "Go to o2fun.com/wallet", -1, FONT_NORMAL, COLOR_BLACK, COLOR_WHITE);
+        display_text_center(120, 220, "Go to trezor.io/start", -1, FONT_NORMAL, COLOR_BLACK, COLOR_WHITE);
     }
 }
 
@@ -307,8 +300,8 @@ int ui_user_input(int zones)
 {
     for (;;) {
         uint32_t evt = touch_click();
-        uint16_t x = touch_get_x(evt);
-        uint16_t y = touch_get_y(evt);
+        uint16_t x = touch_unpack_x(evt);
+        uint16_t y = touch_unpack_y(evt);
         // clicked on Cancel button
         if ((zones & INPUT_CANCEL) && x >= 9 && x < 9 + 108 && y > 184 && y < 184 + 50) {
             return INPUT_CANCEL;

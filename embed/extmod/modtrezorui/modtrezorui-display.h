@@ -55,10 +55,6 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(mod_trezorui_Display_clear_obj, mod_trezorui_Di
 ///     Refresh display (update screen).
 ///     '''
 STATIC mp_obj_t mod_trezorui_Display_refresh(mp_obj_t self) {
-    // draw red square in upper-right corner when debug build is used
-    if (MP_STATE_VM(mp_optimise_value) == 0) {
-        display_bar(DISPLAY_RESX - 8, 0, 8, 8, 0xF800);
-    }
     display_refresh();
     return mp_const_none;
 }
@@ -178,128 +174,8 @@ STATIC mp_obj_t mod_trezorui_Display_icon(size_t n_args, const mp_obj_t *args) {
     display_icon(x, y, w, h, data + 12, icon.len - 12, fgcolor, bgcolor);
     return mp_const_none;
 }
+
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_trezorui_Display_icon_obj, 6, 6, mod_trezorui_Display_icon);
-
-/// def print(self, text: str) -> None:
-///     '''
-///     Renders text using 5x8 bitmap font (using special text mode).
-///     '''
-STATIC mp_obj_t mod_trezorui_Display_print(mp_obj_t self, mp_obj_t text) {
-    mp_buffer_info_t buf;
-    mp_get_buffer_raise(text, &buf, MP_BUFFER_READ);
-    if (buf.len > 0) {
-        display_print(buf.buf, buf.len);
-    }
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(mod_trezorui_Display_print_obj, mod_trezorui_Display_print);
-
-/// def text(self, x: int, y: int, text: str, font: int, fgcolor: int, bgcolor: int, minwidth: int=None) -> None:
-///     '''
-///     Renders left-aligned text at position (x,y) where x is left position and y is baseline.
-///     Font font is used for rendering, fgcolor is used as foreground color, bgcolor as background.
-///     '''
-STATIC mp_obj_t mod_trezorui_Display_text(size_t n_args, const mp_obj_t *args) {
-    mp_int_t x = mp_obj_get_int(args[1]);
-    mp_int_t y = mp_obj_get_int(args[2]);
-    mp_buffer_info_t text;
-    mp_get_buffer_raise(args[3], &text, MP_BUFFER_READ);
-    mp_int_t font = mp_obj_get_int(args[4]);
-    mp_int_t fgcolor = mp_obj_get_int(args[5]);
-    mp_int_t bgcolor = mp_obj_get_int(args[6]);
-    mp_int_t minwidth = (n_args > 7) ? mp_obj_get_int(args[7]) : 0;
-    // prefill start
-    int w = display_text_width(text.buf, text.len, font);
-    int barwidth = MAX(w, minwidth);
-    display_bar(x, y - 18, barwidth, 23, bgcolor);
-    // prefill end
-    display_text(x, y, text.buf, text.len, font, fgcolor, bgcolor);
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_trezorui_Display_text_obj, 7, 8, mod_trezorui_Display_text);
-
-/// def text_center(self, x: int, y: int, text: str, font: int, fgcolor: int, bgcolor: int, minwidth: int=None) -> None:
-///     '''
-///     Renders text centered at position (x,y) where x is text center and y is baseline.
-///     Font font is used for rendering, fgcolor is used as foreground color, bgcolor as background.
-///     '''
-STATIC mp_obj_t mod_trezorui_Display_text_center(size_t n_args, const mp_obj_t *args) {
-    mp_int_t x = mp_obj_get_int(args[1]);
-    mp_int_t y = mp_obj_get_int(args[2]);
-    mp_buffer_info_t text;
-    mp_get_buffer_raise(args[3], &text, MP_BUFFER_READ);
-    mp_int_t font = mp_obj_get_int(args[4]);
-    mp_int_t fgcolor = mp_obj_get_int(args[5]);
-    mp_int_t bgcolor = mp_obj_get_int(args[6]);
-    mp_int_t minwidth = (n_args > 7) ? mp_obj_get_int(args[7]) : 0;
-    // prefill start
-    int w = display_text_width(text.buf, text.len, font);
-    int barwidth = MAX(w, minwidth);
-    display_bar(x - barwidth / 2, y - 18, barwidth, 23, bgcolor);
-    // prefill end
-    display_text_center(x, y, text.buf, text.len, font, fgcolor, bgcolor);
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_trezorui_Display_text_center_obj, 7, 8, mod_trezorui_Display_text_center);
-
-/// def text_right(self, x: int, y: int, text: str, font: int, fgcolor: int, bgcolor: int, minwidth: int=None) -> None:
-///     '''
-///     Renders right-aligned text at position (x,y) where x is right position and y is baseline.
-///     Font font is used for rendering, fgcolor is used as foreground color, bgcolor as background.
-///     '''
-STATIC mp_obj_t mod_trezorui_Display_text_right(size_t n_args, const mp_obj_t *args) {
-    mp_int_t x = mp_obj_get_int(args[1]);
-    mp_int_t y = mp_obj_get_int(args[2]);
-    mp_buffer_info_t text;
-    mp_get_buffer_raise(args[3], &text, MP_BUFFER_READ);
-    mp_int_t font = mp_obj_get_int(args[4]);
-    mp_int_t fgcolor = mp_obj_get_int(args[5]);
-    mp_int_t bgcolor = mp_obj_get_int(args[6]);
-    mp_int_t minwidth = (n_args > 7) ? mp_obj_get_int(args[7]) : 0;
-    // prefill start
-    int w = display_text_width(text.buf, text.len, font);
-    int barwidth = MAX(w, minwidth);
-    display_bar(x - barwidth, y - 18, barwidth, 23, bgcolor);
-    // prefill end
-    display_text_right(x, y, text.buf, text.len, font, fgcolor, bgcolor);
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_trezorui_Display_text_right_obj, 7, 8, mod_trezorui_Display_text_right);
-
-/// def text_width(self, text: str, font: int) -> int:
-///     '''
-///     Returns a width of text in pixels. Font font is used for rendering.
-///     '''
-STATIC mp_obj_t mod_trezorui_Display_text_width(mp_obj_t self, mp_obj_t text, mp_obj_t font) {
-    mp_buffer_info_t txt;
-    mp_get_buffer_raise(text, &txt, MP_BUFFER_READ);
-    mp_int_t f = mp_obj_get_int(font);
-    int w = display_text_width(txt.buf, txt.len, f);
-    return MP_OBJ_NEW_SMALL_INT(w);
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_3(mod_trezorui_Display_text_width_obj, mod_trezorui_Display_text_width);
-
-/// def qrcode(self, x: int, y: int, data: bytes, scale: int) -> None:
-///     '''
-///     Renders data encoded as a QR code centered at position (x,y).
-///     Scale determines a zoom factor.
-///     '''
-STATIC mp_obj_t mod_trezorui_Display_qrcode(size_t n_args, const mp_obj_t *args) {
-    mp_int_t x = mp_obj_get_int(args[1]);
-    mp_int_t y = mp_obj_get_int(args[2]);
-    mp_int_t scale = mp_obj_get_int(args[4]);
-    if (scale < 1 || scale > 10) {
-        mp_raise_ValueError("Scale has to be between 1 and 10");
-    }
-    mp_buffer_info_t data;
-    mp_get_buffer_raise(args[3], &data, MP_BUFFER_READ);
-    if (data.len > 0) {
-        display_qrcode(x, y, data.buf, data.len, scale);
-    }
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_trezorui_Display_qrcode_obj, 5, 5, mod_trezorui_Display_qrcode);
-
 /// def loader(self, progress: int, yoffset: int, fgcolor: int, bgcolor: int, icon: bytes = None, iconfgcolor: int = None) -> None:
 ///     '''
 ///     Renders a rotating loader graphic.
@@ -341,6 +217,132 @@ STATIC mp_obj_t mod_trezorui_Display_loader(size_t n_args, const mp_obj_t *args)
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_trezorui_Display_loader_obj, 5, 7, mod_trezorui_Display_loader);
+
+/// def print(self, text: str) -> None:
+///     '''
+///     Renders text using 5x8 bitmap font (using special text mode).
+///     '''
+STATIC mp_obj_t mod_trezorui_Display_print(mp_obj_t self, mp_obj_t text) {
+    mp_buffer_info_t buf;
+    mp_get_buffer_raise(text, &buf, MP_BUFFER_READ);
+    if (buf.len > 0) {
+        display_print(buf.buf, buf.len);
+    }
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(mod_trezorui_Display_print_obj, mod_trezorui_Display_print);
+
+/// def text(self, x: int, y: int, text: str, font: int, fgcolor: int, bgcolor: int, minwidth: int=None) -> int:
+///     '''
+///     Renders left-aligned text at position (x,y) where x is left position and y is baseline.
+///     Font font is used for rendering, fgcolor is used as foreground color, bgcolor as background.
+///     Fills at least minwidth pixels with bgcolor.
+///     Returns width of rendered text in pixels.
+///     '''
+STATIC mp_obj_t mod_trezorui_Display_text(size_t n_args, const mp_obj_t *args) {
+    mp_int_t x = mp_obj_get_int(args[1]);
+    mp_int_t y = mp_obj_get_int(args[2]);
+    mp_buffer_info_t text;
+    mp_get_buffer_raise(args[3], &text, MP_BUFFER_READ);
+    mp_int_t font = mp_obj_get_int(args[4]);
+    mp_int_t fgcolor = mp_obj_get_int(args[5]);
+    mp_int_t bgcolor = mp_obj_get_int(args[6]);
+    mp_int_t minwidth = (n_args > 7) ? mp_obj_get_int(args[7]) : 0;
+    // prefill start
+    int w = display_text_width(text.buf, text.len, font);
+    int barwidth = MAX(w, minwidth);
+    display_bar(x, y - 18, barwidth, 23, bgcolor);
+    // prefill end
+    display_text(x, y, text.buf, text.len, font, fgcolor, bgcolor);
+    return mp_obj_new_int(w);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_trezorui_Display_text_obj, 7, 8, mod_trezorui_Display_text);
+
+/// def text_center(self, x: int, y: int, text: str, font: int, fgcolor: int, bgcolor: int, minwidth: int=None) -> int:
+///     '''
+///     Renders text centered at position (x,y) where x is text center and y is baseline.
+///     Font font is used for rendering, fgcolor is used as foreground color, bgcolor as background.
+///     Fills at least minwidth pixels with bgcolor.
+///     Returns width of rendered text in pixels.
+///     '''
+STATIC mp_obj_t mod_trezorui_Display_text_center(size_t n_args, const mp_obj_t *args) {
+    mp_int_t x = mp_obj_get_int(args[1]);
+    mp_int_t y = mp_obj_get_int(args[2]);
+    mp_buffer_info_t text;
+    mp_get_buffer_raise(args[3], &text, MP_BUFFER_READ);
+    mp_int_t font = mp_obj_get_int(args[4]);
+    mp_int_t fgcolor = mp_obj_get_int(args[5]);
+    mp_int_t bgcolor = mp_obj_get_int(args[6]);
+    mp_int_t minwidth = (n_args > 7) ? mp_obj_get_int(args[7]) : 0;
+    // prefill start
+    int w = display_text_width(text.buf, text.len, font);
+    int barwidth = MAX(w, minwidth);
+    display_bar(x - barwidth / 2, y - 18, barwidth, 23, bgcolor);
+    // prefill end
+    display_text_center(x, y, text.buf, text.len, font, fgcolor, bgcolor);
+    return mp_obj_new_int(w);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_trezorui_Display_text_center_obj, 7, 8, mod_trezorui_Display_text_center);
+
+/// def text_right(self, x: int, y: int, text: str, font: int, fgcolor: int, bgcolor: int, minwidth: int=None) -> int:
+///     '''
+///     Renders right-aligned text at position (x,y) where x is right position and y is baseline.
+///     Font font is used for rendering, fgcolor is used as foreground color, bgcolor as background.
+///     Fills at least minwidth pixels with bgcolor.
+///     Returns width of rendered text in pixels.
+///     '''
+STATIC mp_obj_t mod_trezorui_Display_text_right(size_t n_args, const mp_obj_t *args) {
+    mp_int_t x = mp_obj_get_int(args[1]);
+    mp_int_t y = mp_obj_get_int(args[2]);
+    mp_buffer_info_t text;
+    mp_get_buffer_raise(args[3], &text, MP_BUFFER_READ);
+    mp_int_t font = mp_obj_get_int(args[4]);
+    mp_int_t fgcolor = mp_obj_get_int(args[5]);
+    mp_int_t bgcolor = mp_obj_get_int(args[6]);
+    mp_int_t minwidth = (n_args > 7) ? mp_obj_get_int(args[7]) : 0;
+    // prefill start
+    int w = display_text_width(text.buf, text.len, font);
+    int barwidth = MAX(w, minwidth);
+    display_bar(x - barwidth, y - 18, barwidth, 23, bgcolor);
+    // prefill end
+    display_text_right(x, y, text.buf, text.len, font, fgcolor, bgcolor);
+    return mp_obj_new_int(w);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_trezorui_Display_text_right_obj, 7, 8, mod_trezorui_Display_text_right);
+
+/// def text_width(self, text: str, font: int) -> int:
+///     '''
+///     Returns a width of text in pixels. Font font is used for rendering.
+///     '''
+STATIC mp_obj_t mod_trezorui_Display_text_width(mp_obj_t self, mp_obj_t text, mp_obj_t font) {
+    mp_buffer_info_t txt;
+    mp_get_buffer_raise(text, &txt, MP_BUFFER_READ);
+    mp_int_t f = mp_obj_get_int(font);
+    int w = display_text_width(txt.buf, txt.len, f);
+    return mp_obj_new_int(w);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_3(mod_trezorui_Display_text_width_obj, mod_trezorui_Display_text_width);
+
+/// def qrcode(self, x: int, y: int, data: bytes, scale: int) -> None:
+///     '''
+///     Renders data encoded as a QR code centered at position (x,y).
+///     Scale determines a zoom factor.
+///     '''
+STATIC mp_obj_t mod_trezorui_Display_qrcode(size_t n_args, const mp_obj_t *args) {
+    mp_int_t x = mp_obj_get_int(args[1]);
+    mp_int_t y = mp_obj_get_int(args[2]);
+    mp_int_t scale = mp_obj_get_int(args[4]);
+    if (scale < 1 || scale > 10) {
+        mp_raise_ValueError("Scale has to be between 1 and 10");
+    }
+    mp_buffer_info_t data;
+    mp_get_buffer_raise(args[3], &data, MP_BUFFER_READ);
+    if (data.len > 0) {
+        display_qrcode(x, y, data.buf, data.len, scale);
+    }
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_trezorui_Display_qrcode_obj, 5, 5, mod_trezorui_Display_qrcode);
 
 /// def orientation(self, degrees: int = None) -> int:
 ///     '''
@@ -436,13 +438,13 @@ STATIC const mp_rom_map_elem_t mod_trezorui_Display_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_image), MP_ROM_PTR(&mod_trezorui_Display_image_obj) },
     { MP_ROM_QSTR(MP_QSTR_avatar), MP_ROM_PTR(&mod_trezorui_Display_avatar_obj) },
     { MP_ROM_QSTR(MP_QSTR_icon), MP_ROM_PTR(&mod_trezorui_Display_icon_obj) },
+    { MP_ROM_QSTR(MP_QSTR_loader), MP_ROM_PTR(&mod_trezorui_Display_loader_obj) },
     { MP_ROM_QSTR(MP_QSTR_print), MP_ROM_PTR(&mod_trezorui_Display_print_obj) },
     { MP_ROM_QSTR(MP_QSTR_text), MP_ROM_PTR(&mod_trezorui_Display_text_obj) },
     { MP_ROM_QSTR(MP_QSTR_text_center), MP_ROM_PTR(&mod_trezorui_Display_text_center_obj) },
     { MP_ROM_QSTR(MP_QSTR_text_right), MP_ROM_PTR(&mod_trezorui_Display_text_right_obj) },
     { MP_ROM_QSTR(MP_QSTR_text_width), MP_ROM_PTR(&mod_trezorui_Display_text_width_obj) },
     { MP_ROM_QSTR(MP_QSTR_qrcode), MP_ROM_PTR(&mod_trezorui_Display_qrcode_obj) },
-    { MP_ROM_QSTR(MP_QSTR_loader), MP_ROM_PTR(&mod_trezorui_Display_loader_obj) },
     { MP_ROM_QSTR(MP_QSTR_orientation), MP_ROM_PTR(&mod_trezorui_Display_orientation_obj) },
     { MP_ROM_QSTR(MP_QSTR_backlight), MP_ROM_PTR(&mod_trezorui_Display_backlight_obj) },
     { MP_ROM_QSTR(MP_QSTR_offset), MP_ROM_PTR(&mod_trezorui_Display_offset_obj) },
@@ -450,9 +452,10 @@ STATIC const mp_rom_map_elem_t mod_trezorui_Display_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_WIDTH), MP_OBJ_NEW_SMALL_INT(DISPLAY_RESX) },
     { MP_ROM_QSTR(MP_QSTR_HEIGHT), MP_OBJ_NEW_SMALL_INT(DISPLAY_RESY) },
     { MP_ROM_QSTR(MP_QSTR_FONT_SIZE), MP_OBJ_NEW_SMALL_INT(FONT_SIZE) },
-    { MP_ROM_QSTR(MP_QSTR_FONT_MONO), MP_OBJ_NEW_SMALL_INT(FONT_MONO) },
     { MP_ROM_QSTR(MP_QSTR_FONT_NORMAL), MP_OBJ_NEW_SMALL_INT(FONT_NORMAL) },
     { MP_ROM_QSTR(MP_QSTR_FONT_BOLD), MP_OBJ_NEW_SMALL_INT(FONT_BOLD) },
+    { MP_ROM_QSTR(MP_QSTR_FONT_MONO), MP_OBJ_NEW_SMALL_INT(FONT_MONO) },
+    { MP_ROM_QSTR(MP_QSTR_FONT_MONO_BOLD), MP_OBJ_NEW_SMALL_INT(FONT_MONO_BOLD) },
 };
 STATIC MP_DEFINE_CONST_DICT(mod_trezorui_Display_locals_dict, mod_trezorui_Display_locals_dict_table);
 

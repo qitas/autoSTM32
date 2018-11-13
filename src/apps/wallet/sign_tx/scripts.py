@@ -1,6 +1,15 @@
-from trezor.crypto.hashlib import ripemd160, sha256
+from trezor.messages.MultisigRedeemScriptType import MultisigRedeemScriptType
+from trezor.utils import ensure
+
+from apps.common.coininfo import CoinInfo
+from apps.common.writers import empty_bytearray
 from apps.wallet.sign_tx.multisig import multisig_get_pubkeys
-from apps.wallet.sign_tx.writers import *
+from apps.wallet.sign_tx.writers import (
+    write_bytes,
+    write_op_push,
+    write_scriptnum,
+    write_varint,
+)
 
 
 class ScriptsError(ValueError):
@@ -12,8 +21,10 @@ class ScriptsError(ValueError):
 # https://github.com/bitcoin/bips/blob/master/bip-0016.mediawiki
 
 
-def input_script_p2pkh_or_p2sh(pubkey: bytes, signature: bytes, sighash: int) -> bytearray:
-    w = bytearray_with_cap(5 + len(signature) + 1 + 5 + len(pubkey))
+def input_script_p2pkh_or_p2sh(
+    pubkey: bytes, signature: bytes, sighash: int
+) -> bytearray:
+    w = empty_bytearray(5 + len(signature) + 1 + 5 + len(pubkey))
     append_signature(w, signature, sighash)
     append_pubkey(w, pubkey)
     return w
@@ -41,6 +52,20 @@ def output_script_p2sh(scripthash: bytes) -> bytearray:
     return s
 
 
+def script_replay_protection_bip115(
+    block_hash: bytes, block_height: bytes
+) -> bytearray:
+    if block_hash is None or block_height is None:
+        return bytearray()
+    ensure(len(block_hash) == 32)
+    s = bytearray(33)
+    s[0] = 0x20  # 32 bytes for block hash
+    s[1:33] = block_hash  # block hash
+    write_scriptnum(s, block_height)
+    s.append(0xB4)  # OP_CHECKBLOCKATHEIGHT
+    return s
+
+
 # SegWit: Native P2WPKH or P2WSH
 # ===
 # https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#p2wpkh
@@ -63,7 +88,7 @@ def output_script_native_p2wpkh_or_p2wsh(witprog: bytes) -> bytearray:
     # 00 14 <20-byte-key-hash>
     # 00 20 <32-byte-script-hash>
 
-    w = bytearray_with_cap(3 + len(witprog))
+    w = empty_bytearray(3 + len(witprog))
     w.append(0x00)  # witness version byte
     w.append(len(witprog))  # pub key hash length is 20 (P2WPKH) or 32 (P2WSH) bytes
     write_bytes(w, witprog)  # pub key hash
@@ -82,7 +107,7 @@ def input_script_p2wpkh_in_p2sh(pubkeyhash: bytes) -> bytearray:
     # 16 00 14 <pubkeyhash>
     # Signature is moved to the witness.
 
-    w = bytearray_with_cap(3 + len(pubkeyhash))
+    w = empty_bytearray(3 + len(pubkeyhash))
     w.append(0x16)  # length of the data
     w.append(0x00)  # witness version byte
     w.append(0x14)  # P2WPKH witness program (pub key hash length)
@@ -103,9 +128,9 @@ def input_script_p2wsh_in_p2sh(script_hash: bytes) -> bytearray:
     # Signature is moved to the witness.
 
     if len(script_hash) != 32:
-        raise ScriptsError('Redeem script hash should be 32 bytes long')
+        raise ScriptsError("Redeem script hash should be 32 bytes long")
 
-    w = bytearray_with_cap(3 + len(script_hash))
+    w = empty_bytearray(3 + len(script_hash))
     w.append(0x22)  # length of the data
     w.append(0x00)  # witness version byte
     w.append(0x20)  # P2WSH witness program (redeem script hash length)
@@ -118,17 +143,22 @@ def input_script_p2wsh_in_p2sh(script_hash: bytes) -> bytearray:
 
 
 def witness_p2wpkh(signature: bytes, pubkey: bytes, sighash: int):
-    w = bytearray_with_cap(1 + 5 + len(signature) + 1 + 5 + len(pubkey))
+    w = empty_bytearray(1 + 5 + len(signature) + 1 + 5 + len(pubkey))
     write_varint(w, 0x02)  # num of segwit items, in P2WPKH it's always 2
     append_signature(w, signature, sighash)
     append_pubkey(w, pubkey)
     return w
 
 
-def witness_p2wsh(multisig: MultisigRedeemScriptType, signature: bytes, signature_index: int, sighash: int):
+def witness_p2wsh(
+    multisig: MultisigRedeemScriptType,
+    signature: bytes,
+    signature_index: int,
+    sighash: int,
+):
     signatures = multisig.signatures  # other signatures
     if len(signatures[signature_index]) > 0:
-        raise ScriptsError('Invalid multisig parameters')
+        raise ScriptsError("Invalid multisig parameters")
     signatures[signature_index] = signature  # our signature
 
     # filter empty
@@ -158,17 +188,25 @@ def witness_p2wsh(multisig: MultisigRedeemScriptType, signature: bytes, signatur
 # Used either as P2SH, P2WSH, or P2WSH nested in P2SH.
 
 
-def input_script_multisig(multisig: MultisigRedeemScriptType, signature: bytes, signature_index: int, sighash: int):
+def input_script_multisig(
+    multisig: MultisigRedeemScriptType,
+    signature: bytes,
+    signature_index: int,
+    sighash: int,
+    coin: CoinInfo,
+):
     signatures = multisig.signatures  # other signatures
     if len(signatures[signature_index]) > 0:
-        raise ScriptsError('Invalid multisig parameters')
+        raise ScriptsError("Invalid multisig parameters")
     signatures[signature_index] = signature  # our signature
 
     w = bytearray()
-    # Starts with OP_FALSE because of an old OP_CHECKMULTISIG bug, which
-    # consumes one additional item on the stack:
-    # https://bitcoin.org/en/developer-guide#standard-transactions
-    w.append(0x00)
+
+    if not coin.decred:
+        # Starts with OP_FALSE because of an old OP_CHECKMULTISIG bug, which
+        # consumes one additional item on the stack:
+        # https://bitcoin.org/en/developer-guide#standard-transactions
+        w.append(0x00)
 
     for s in signatures:
         if len(s):
@@ -186,10 +224,10 @@ def input_script_multisig(multisig: MultisigRedeemScriptType, signature: bytes, 
 def output_script_multisig(pubkeys, m: int) -> bytearray:
     n = len(pubkeys)
     if n < 1 or n > 15 or m < 1 or m > 15:
-        raise ScriptsError('Invalid multisig parameters')
+        raise ScriptsError("Invalid multisig parameters")
     for pubkey in pubkeys:
         if len(pubkey) != 33:
-            raise ScriptsError('Invalid multisig parameters')
+            raise ScriptsError("Invalid multisig parameters")
 
     w = bytearray()
     w.append(0x50 + m)  # numbers 1 to 16 are pushed as 0x50 + value
@@ -205,7 +243,7 @@ def output_script_multisig(pubkeys, m: int) -> bytearray:
 
 
 def output_script_paytoopreturn(data: bytes) -> bytearray:
-    w = bytearray_with_cap(1 + 5 + len(data))
+    w = empty_bytearray(1 + 5 + len(data))
     w.append(0x6A)  # OP_RETURN
     write_op_push(w, len(data))
     w.extend(data)
@@ -227,9 +265,3 @@ def append_pubkey(w: bytearray, pubkey: bytes) -> bytearray:
     write_op_push(w, len(pubkey))
     write_bytes(w, pubkey)
     return w
-
-
-def sha256_ripemd160_digest(b: bytes) -> bytes:
-    h = sha256(b).digest()
-    h = ripemd160(h).digest()
-    return h

@@ -13,48 +13,33 @@ FIRMWARE_BUILD_DIR    = $(BUILD_DIR)/firmware
 UNIX_BUILD_DIR        = $(BUILD_DIR)/unix
 
 UNAME_S := $(shell uname -s)
-ifeq ($(UNAME_S),Darwin)
-UNIX_PORT_OPTS ?= TREZOR_X86=0
-else
-UNIX_PORT_OPTS ?= TREZOR_X86=1
-endif
+UNIX_PORT_OPTS ?=
 CROSS_PORT_OPTS ?=
-
-ifeq ($(DISPLAY_ILI9341V), 1)
-CFLAGS += -DDISPLAY_ILI9341V=1
-CFLAGS += -DDISPLAY_ST7789V=0
-endif
 
 PRODUCTION ?= 0
 
-STLINK_VER ?= v2-1
+STLINK_VER ?= v2
 OPENOCD = openocd -f interface/stlink-$(STLINK_VER).cfg -c "transport select hla_swd" -f target/stm32f4x.cfg
 
 BOARDLOADER_START   = 0x08000000
 BOOTLOADER_START    = 0x08020000
-FIRMWARE_START      = 0x08040000
+FIRMWARE_P1_START   = 0x08040000
+FIRMWARE_P2_START   = 0x08120000
 PRODTEST_START      = 0x08040000
 
 BOARDLOADER_MAXSIZE = 49152
 BOOTLOADER_MAXSIZE  = 131072
-FIRMWARE_MAXSIZE    = 786432
+FIRMWARE_P1_MAXSIZE = 786432
+FIRMWARE_P2_MAXSIZE = 917504
+FIRMWARE_MAXSIZE    = 1703936
 
-GITREV=$(shell git describe --always --dirty)
+GITREV=$(shell git describe --always --dirty | tr '-' '_')
 CFLAGS += -DGITREV=$(GITREV)
 
 ## help commands:
 
 help: ## show this help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m  make %-20s\033[0m %s\n", $$1, $$2} /^##(.*)/ {printf "\033[33m%s\n", substr($$0, 4)}' $(MAKEFILE_LIST)
-
-install: ## install environment
-	sudo dpkg --add-architecture i386;
-	sudo apt update;
-	sudo apt install scons libsdl2-dev:i386 libsdl2-image-dev:i386 gcc-multilib;
-	sudo apt install openocd;
-	sudo pip3 install --no-cache-dir click pyblake2 scons;
-	sudo pip3 install --no-deps git+https://github.com/trezor/python-trezor.git@master;
-	sudo apt install gcc-arm-none-eabi libnewlib-arm-none-eabi;
 
 ## dependencies commands:
 
@@ -63,23 +48,6 @@ vendor: ## update git submodules
 
 res: ## update resources
 	./tools/res_collect
-
-genkeys: ## generate all keys
-	cd sign ;./genkeys; $(warning make sure after this step,you copy keys to the right file)
-	
-conv: ## convert toif to bin header
-	cd sign ;./oazonFirmware;./oazonProdtest
-
-signboot: ## sign the bootloader bin with ed25519 keypairs
-	cd sign ;./signbootloader
-	
-signfw: ## sign the firmware bin with ed25519 keypairs
-	cd sign ;./signfirmware
-	
-signall: ## sign all bin file with ed25519 keypairs
-	cd sign ;./signbootloader;./signfirmware
-
-stm32:conv build_boardloader build_bootloader build_firmware signed flash ## build for hardware
 
 ## emulator commands:
 
@@ -97,17 +65,41 @@ test: ## run unit tests
 test_emu: ## run selected device tests from python-trezor
 	cd tests ; ./run_tests_device_emu.sh $(TESTOPTS)
 
+test_emu_monero: ## run selected monero device tests from monero-agent
+	cd tests ; ./run_tests_device_emu_monero.sh $(TESTOPTS)
+
 pylint: ## run pylint on application sources and tests
-	pylint -E $(shell find src -name *.py)
-	pylint -E $(shell find tests -name *.py)
+	pylint -E $(shell find src tests -name *.py)
+
+## style commands:
 
 style: ## run code style check on application sources and tests
 	flake8 $(shell find src -name *.py)
-	flake8 $(shell find tests -name *.py)
+	isort --check-only $(shell find src -name *.py ! -path 'src/trezor/messages/*')
+	black --check $(shell find src -name *.py ! -path 'src/trezor/messages/*')
+
+isort:
+	isort $(shell find src -name *.py ! -path 'src/trezor/messages/*')
+
+black:
+	black $(shell find src -name *.py ! -path 'src/trezor/messages/*')
+
+cstyle: ## run code style check on low-level C code
+	./tools/clang-format-check $(shell find embed -type f -name *.[ch])
+
+## code generation ##
+
+templates: ## render Mako templates (for lists of coins, tokens, etc.)
+	./tools/build_templates
+
+templates_check: ## check that Mako-rendered files match their templates
+	./tools/build_templates --check
 
 ## build commands:
 
 build: build_boardloader build_bootloader build_firmware build_prodtest build_unix ## build all
+
+build_embed: build_boardloader build_bootloader build_firmware # build boardloader, bootloader, firmware
 
 build_boardloader: ## build boardloader
 	$(SCONS) CFLAGS="$(CFLAGS)" PRODUCTION="$(PRODUCTION)" $(BOARDLOADER_BUILD_DIR)/boardloader.bin
@@ -130,7 +122,10 @@ build_unix: res ## build unix port
 	$(SCONS) CFLAGS="$(CFLAGS)" $(UNIX_BUILD_DIR)/micropython $(UNIX_PORT_OPTS)
 
 build_unix_noui: res ## build unix port without UI support
-	$(SCONS) CFLAGS="$(CFLAGS)" $(UNIX_BUILD_DIR)/micropython $(UNIX_PORT_OPTS) TREZOR_NOUI=1
+	$(SCONS) CFLAGS="$(CFLAGS)" $(UNIX_BUILD_DIR)/micropython $(UNIX_PORT_OPTS) TREZOR_EMULATOR_NOUI=1
+
+build_unix_raspi: res ## build unix port for Raspberry Pi
+	$(SCONS) CFLAGS="$(CFLAGS)" $(UNIX_BUILD_DIR)/micropython $(UNIX_PORT_OPTS) TREZOR_EMULATOR_RASPI=1
 
 build_cross: ## build mpy-cross port
 	$(MAKE) -C vendor/micropython/mpy-cross $(CROSS_PORT_OPTS)
@@ -171,10 +166,10 @@ flash_bootloader: $(BOOTLOADER_BUILD_DIR)/bootloader.bin ## flash bootloader usi
 	$(OPENOCD) -c "init; reset halt; flash write_image erase $< $(BOOTLOADER_START); exit"
 
 flash_prodtest: $(PRODTEST_BUILD_DIR)/prodtest.bin ## flash prodtest using OpenOCD
-	$(OPENOCD) -c "init; reset halt; flash write_image erase $< $(FIRMWARE_START); exit"
+	$(OPENOCD) -c "init; reset halt; flash write_image erase $< $(PRODTEST_START); exit"
 
 flash_firmware: $(FIRMWARE_BUILD_DIR)/firmware.bin ## flash firmware using OpenOCD
-	$(OPENOCD) -c "init; reset halt; flash write_image erase $< $(FIRMWARE_START); exit"
+	$(OPENOCD) -c "init; reset halt; flash write_image erase $<.p1 $(FIRMWARE_P1_START); flash write_image erase $<.p2 $(FIRMWARE_P2_START); exit"
 
 flash_combine: $(PRODTEST_BUILD_DIR)/combined.bin ## flash combined using OpenOCD
 	$(OPENOCD) -c "init; reset halt; flash write_image erase $< $(BOARDLOADER_START); exit"
@@ -217,6 +212,8 @@ bloaty: ## run bloaty size profiler
 sizecheck: ## check sizes of binary files
 	test $(BOARDLOADER_MAXSIZE) -ge $(shell wc -c < $(BOARDLOADER_BUILD_DIR)/boardloader.bin)
 	test $(BOOTLOADER_MAXSIZE) -ge $(shell wc -c < $(BOOTLOADER_BUILD_DIR)/bootloader.bin)
+	test $(FIRMWARE_P1_MAXSIZE) -ge $(shell wc -c < $(FIRMWARE_BUILD_DIR)/firmware.bin.p1)
+	test $(FIRMWARE_P2_MAXSIZE) -ge $(shell wc -c < $(FIRMWARE_BUILD_DIR)/firmware.bin.p2)
 	test $(FIRMWARE_MAXSIZE) -ge $(shell wc -c < $(FIRMWARE_BUILD_DIR)/firmware.bin)
 
 combine: ## combine boardloader + bootloader + prodtest into one combined image

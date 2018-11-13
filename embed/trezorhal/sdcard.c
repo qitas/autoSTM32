@@ -51,9 +51,44 @@
 
 static SD_HandleTypeDef sd_handle;
 
-void sdcard_init(void) {
-    // invalidate the sd_handle
-    sd_handle.Instance = NULL;
+static inline void sdcard_default_pin_state(void) {
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0,  GPIO_PIN_SET);    // SD_ON/PC0
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8,  GPIO_PIN_RESET);  // SD_DAT0/PC8
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9,  GPIO_PIN_RESET);  // SD_DAT1/PC9
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);  // SD_DAT2/PC10
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_11, GPIO_PIN_RESET);  // SD_DAT3/PC11
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_12, GPIO_PIN_RESET);  // SD_CLK/PC12
+    HAL_GPIO_WritePin(GPIOD, GPIO_PIN_2,  GPIO_PIN_RESET);  // SD_CMD/PD2
+
+    GPIO_InitTypeDef GPIO_InitStructure;
+
+    // configure the SD card circuitry on/off pin
+    GPIO_InitStructure.Mode  = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStructure.Pull  = GPIO_NOPULL;
+    GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_LOW;
+    GPIO_InitStructure.Pin   = GPIO_PIN_0;
+    HAL_GPIO_Init(GPIOC, &GPIO_InitStructure);
+
+    // configure SD GPIO
+    GPIO_InitStructure.Mode  = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStructure.Pull  = GPIO_NOPULL;
+    GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_LOW;
+    GPIO_InitStructure.Pin   = GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11 | GPIO_PIN_12;
+    HAL_GPIO_Init(GPIOC, &GPIO_InitStructure);
+    GPIO_InitStructure.Pin   = GPIO_PIN_2;
+    HAL_GPIO_Init(GPIOD, &GPIO_InitStructure);
+
+    // configure the SD card detect pin
+    GPIO_InitStructure.Mode  = GPIO_MODE_INPUT;
+    GPIO_InitStructure.Pull  = GPIO_PULLUP;
+    GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_LOW;
+    GPIO_InitStructure.Pin   = GPIO_PIN_13;
+    HAL_GPIO_Init(GPIOC, &GPIO_InitStructure);
+}
+
+static inline void sdcard_active_pin_state(void) {
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0,  GPIO_PIN_RESET);  // SD_ON/PC0
+    HAL_Delay(10); // we need to wait until the circuit fully kicks-in
 
     GPIO_InitTypeDef GPIO_InitStructure;
 
@@ -66,13 +101,10 @@ void sdcard_init(void) {
     HAL_GPIO_Init(GPIOC, &GPIO_InitStructure);
     GPIO_InitStructure.Pin       = GPIO_PIN_2;
     HAL_GPIO_Init(GPIOD, &GPIO_InitStructure);
+}
 
-    // configure the SD card detect pin
-    GPIO_InitStructure.Mode = GPIO_MODE_INPUT;
-    GPIO_InitStructure.Pull = GPIO_PULLUP;
-    GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    GPIO_InitStructure.Pin = GPIO_PIN_13;
-    HAL_GPIO_Init(GPIOC, &GPIO_InitStructure);
+void sdcard_init(void) {
+    sdcard_default_pin_state();
 }
 
 void HAL_SD_MspInit(SD_HandleTypeDef *hsd) {
@@ -85,10 +117,6 @@ void HAL_SD_MspDeInit(SD_HandleTypeDef *hsd) {
     __HAL_RCC_SDIO_CLK_DISABLE();
 }
 
-secbool sdcard_is_present(void) {
-    return sectrue * (GPIO_PIN_RESET == HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13));
-}
-
 secbool sdcard_power_on(void) {
     if (sectrue != sdcard_is_present()) {
         return secfalse;
@@ -96,6 +124,9 @@ secbool sdcard_power_on(void) {
     if (sd_handle.Instance) {
         return sectrue;
     }
+    // turn on SD card circuitry
+    sdcard_active_pin_state();
+    HAL_Delay(50);
 
     // SD device interface configuration
     sd_handle.Instance = SDIO;
@@ -123,16 +154,23 @@ secbool sdcard_power_on(void) {
     return sectrue;
 
 error:
-    sd_handle.Instance = NULL;
+    sdcard_power_off();
     return secfalse;
 }
 
 void sdcard_power_off(void) {
-    if (NULL == sd_handle.Instance) {
-        return;
+    if (sd_handle.Instance) {
+        HAL_SD_DeInit(&sd_handle);
+        sd_handle.Instance = NULL;
     }
-    HAL_SD_DeInit(&sd_handle);
-    sd_handle.Instance = NULL;
+    // turn off SD card circuitry
+    HAL_Delay(50);
+    sdcard_default_pin_state();
+    HAL_Delay(100);
+}
+
+secbool sdcard_is_present(void) {
+    return sectrue * (GPIO_PIN_RESET == HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13));
 }
 
 uint64_t sdcard_get_capacity_in_bytes(void) {

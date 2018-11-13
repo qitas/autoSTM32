@@ -1,25 +1,16 @@
-from micropython import const
-
 import uctypes
 import ustruct
 import utime
+from micropython import const
 
-from trezor import log
-from trezor import loop
-from trezor import io
-from trezor import ui
-from trezor import utils
-from trezor import workflow
-from trezor.crypto import der
-from trezor.crypto import hashlib
-from trezor.crypto import hmac
-from trezor.crypto import random
+from trezor import io, log, loop, ui, utils, workflow
+from trezor.crypto import der, hashlib, hmac, random
 from trezor.crypto.curve import nist256p1
-from apps.common import storage
 
+from apps.common import HARDENED, storage
 
 _HID_RPT_SIZE = const(64)
-_CID_BROADCAST = const(0xffffffff)  # broadcast channel id
+_CID_BROADCAST = const(0xFFFFFFFF)  # broadcast channel id
 
 # types of frame
 _TYPE_MASK = const(0x80)  # frame type mask
@@ -27,17 +18,17 @@ _TYPE_INIT = const(0x80)  # initial frame identifier
 _TYPE_CONT = const(0x00)  # continuation frame identifier
 
 # types of cmd
-_CMD_PING = const(0x81)   # echo data through local processor only
-_CMD_MSG = const(0x83)    # send U2F message frame
-_CMD_LOCK = const(0x84)   # send lock channel command
-_CMD_INIT = const(0x86)   # channel initialization
-_CMD_WINK = const(0x88)   # send device identification wink
-_CMD_ERROR = const(0xbf)  # error response
+_CMD_PING = const(0x81)  # echo data through local processor only
+_CMD_MSG = const(0x83)  # send U2F message frame
+_CMD_LOCK = const(0x84)  # send lock channel command
+_CMD_INIT = const(0x86)  # channel initialization
+_CMD_WINK = const(0x88)  # send device identification wink
+_CMD_ERROR = const(0xBF)  # error response
 
 # types for the msg cmd
-_MSG_REGISTER = const(0x01)      # registration command
+_MSG_REGISTER = const(0x01)  # registration command
 _MSG_AUTHENTICATE = const(0x02)  # authenticate/sign command
-_MSG_VERSION = const(0x03)       # read version string command
+_MSG_VERSION = const(0x03)  # read version string command
 
 # hid error codes
 _ERR_NONE = const(0x00)  # no error
@@ -47,22 +38,22 @@ _ERR_INVALID_LEN = const(0x03)  # invalid message length
 _ERR_INVALID_SEQ = const(0x04)  # invalid message sequencing
 _ERR_MSG_TIMEOUT = const(0x05)  # message has timed out
 _ERR_CHANNEL_BUSY = const(0x06)  # channel busy
-_ERR_LOCK_REQUIRED = const(0x0a)  # command requires channel lock
-_ERR_INVALID_CID = const(0x0b)  # command not allowed on this cid
-_ERR_OTHER = const(0x7f)  # other unspecified error
+_ERR_LOCK_REQUIRED = const(0x0A)  # command requires channel lock
+_ERR_INVALID_CID = const(0x0B)  # command not allowed on this cid
+_ERR_OTHER = const(0x7F)  # other unspecified error
 
 # command status responses
 _SW_NO_ERROR = const(0x9000)
 _SW_WRONG_LENGTH = const(0x6700)
 _SW_DATA_INVALID = const(0x6984)
 _SW_CONDITIONS_NOT_SATISFIED = const(0x6985)
-_SW_WRONG_DATA = const(0x6a80)
-_SW_INS_NOT_SUPPORTED = const(0x6d00)
-_SW_CLA_NOT_SUPPORTED = const(0x6e00)
+_SW_WRONG_DATA = const(0x6A80)
+_SW_INS_NOT_SUPPORTED = const(0x6D00)
+_SW_CLA_NOT_SUPPORTED = const(0x6E00)
 
 # init response
-_CAPFLAG_WINK = const(0x01)     # device supports _CMD_WINK
-_U2FHID_IF_VERSION = const(2)   # interface version
+_CAPFLAG_WINK = const(0x01)  # device supports _CMD_WINK
+_U2FHID_IF_VERSION = const(2)  # interface version
 
 # register response
 _U2F_KEY_PATH = const(0x80553246)
@@ -72,18 +63,18 @@ _U2F_ATT_CERT = b"0\x82\x01\x180\x81\xc0\x02\t\x00\xb1\xd9\x8fBdr\xd3,0\n\x06\x0
 _BOGUS_APPID = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 
 # authentication control byte
-_AUTH_ENFORCE = const(0x03)     # enforce user presence and sign
+_AUTH_ENFORCE = const(0x03)  # enforce user presence and sign
 _AUTH_CHECK_ONLY = const(0x07)  # check only
-_AUTH_FLAG_TUP = const(0x01)    # test of user presence set
+_AUTH_FLAG_TUP = const(0x01)  # test of user presence set
 
 # common raw message format (ISO7816-4:2005 mapping)
-_APDU_CLA = const(0)   # uint8_t cla;        // Class - reserved
-_APDU_INS = const(1)   # uint8_t ins;        // U2F instruction
-_APDU_P1 = const(2)    # uint8_t p1;         // U2F parameter 1
-_APDU_P2 = const(3)    # uint8_t p2;         // U2F parameter 2
-_APDU_LC1 = const(4)   # uint8_t lc1;        // Length field, set to zero
-_APDU_LC2 = const(5)   # uint8_t lc2;        // Length field, MSB
-_APDU_LC3 = const(6)   # uint8_t lc3;        // Length field, LSB
+_APDU_CLA = const(0)  # uint8_t cla;        // Class - reserved
+_APDU_INS = const(1)  # uint8_t ins;        // U2F instruction
+_APDU_P1 = const(2)  # uint8_t p1;         // U2F parameter 1
+_APDU_P2 = const(3)  # uint8_t p2;         // U2F parameter 2
+_APDU_LC1 = const(4)  # uint8_t lc1;        // Length field, set to zero
+_APDU_LC2 = const(5)  # uint8_t lc2;        // Length field, MSB
+_APDU_LC3 = const(6)  # uint8_t lc3;        // Length field, LSB
 _APDU_DATA = const(7)  # uint8_t data[1];    // Data field
 
 
@@ -94,10 +85,10 @@ def frame_init() -> dict:
     # uint8_t bcntl;    // Message byte count - low part
     # uint8_t data[HID_RPT_SIZE - 7];   // Data payload
     return {
-        'cid':   0 | uctypes.UINT32,
-        'cmd':   4 | uctypes.UINT8,
-        'bcnt':  5 | uctypes.UINT16,
-        'data': (7 | uctypes.ARRAY, (_HID_RPT_SIZE - 7) | uctypes.UINT8),
+        "cid": 0 | uctypes.UINT32,
+        "cmd": 4 | uctypes.UINT8,
+        "bcnt": 5 | uctypes.UINT16,
+        "data": (7 | uctypes.ARRAY, (_HID_RPT_SIZE - 7) | uctypes.UINT8),
     }
 
 
@@ -106,9 +97,9 @@ def frame_cont() -> dict:
     # uint8_t seq;                      // Sequence number - b7 cleared
     # uint8_t data[HID_RPT_SIZE - 5];   // Data payload
     return {
-        'cid':   0 | uctypes.UINT32,
-        'seq':   4 | uctypes.UINT8,
-        'data': (5 | uctypes.ARRAY, (_HID_RPT_SIZE - 5) | uctypes.UINT8),
+        "cid": 0 | uctypes.UINT32,
+        "seq": 4 | uctypes.UINT8,
+        "data": (5 | uctypes.ARRAY, (_HID_RPT_SIZE - 5) | uctypes.UINT8),
     }
 
 
@@ -121,13 +112,13 @@ def resp_cmd_init() -> dict:
     # uint8_t versionBuild;     // Build version number
     # uint8_t capFlags;         // Capabilities flags
     return {
-        'nonce':            (0 | uctypes.ARRAY, 8 | uctypes.UINT8),
-        'cid':               8 | uctypes.UINT32,
-        'versionInterface': 12 | uctypes.UINT8,
-        'versionMajor':     13 | uctypes.UINT8,
-        'versionMinor':     14 | uctypes.UINT8,
-        'versionBuild':     15 | uctypes.UINT8,
-        'capFlags':         16 | uctypes.UINT8,
+        "nonce": (0 | uctypes.ARRAY, 8 | uctypes.UINT8),
+        "cid": 8 | uctypes.UINT32,
+        "versionInterface": 12 | uctypes.UINT8,
+        "versionMajor": 13 | uctypes.UINT8,
+        "versionMinor": 14 | uctypes.UINT8,
+        "versionBuild": 15 | uctypes.UINT8,
+        "capFlags": 16 | uctypes.UINT8,
     }
 
 
@@ -143,13 +134,13 @@ def resp_cmd_register(khlen: int, certlen: int, siglen: int) -> dict:
     # uint8_t sig[siglen];      // Registration signature
     # uint16_t status;
     return {
-        'registerId':      0 | uctypes.UINT8,
-        'pubKey':         (1 | uctypes.ARRAY, 65 | uctypes.UINT8),
-        'keyHandleLen':   66 | uctypes.UINT8,
-        'keyHandle':     (67 | uctypes.ARRAY, khlen | uctypes.UINT8),
-        'cert':    (cert_ofs | uctypes.ARRAY, certlen | uctypes.UINT8),
-        'sig':      (sig_ofs | uctypes.ARRAY, siglen | uctypes.UINT8),
-        'status': status_ofs | uctypes.UINT16,
+        "registerId": 0 | uctypes.UINT8,
+        "pubKey": (1 | uctypes.ARRAY, 65 | uctypes.UINT8),
+        "keyHandleLen": 66 | uctypes.UINT8,
+        "keyHandle": (67 | uctypes.ARRAY, khlen | uctypes.UINT8),
+        "cert": (cert_ofs | uctypes.ARRAY, certlen | uctypes.UINT8),
+        "sig": (sig_ofs | uctypes.ARRAY, siglen | uctypes.UINT8),
+        "status": status_ofs | uctypes.UINT16,
     }
 
 
@@ -163,10 +154,10 @@ def req_cmd_authenticate(khlen: int) -> dict:
     # uint8_t keyHandleLen;     // Length of key handle
     # uint8_t keyHandle[khlen]; // Key handle
     return {
-        'chal':         (0 | uctypes.ARRAY, 32 | uctypes.UINT8),
-        'appId':       (32 | uctypes.ARRAY, 32 | uctypes.UINT8),
-        'keyHandleLen': 64 | uctypes.UINT8,
-        'keyHandle':   (65 | uctypes.ARRAY, khlen | uctypes.UINT8),
+        "chal": (0 | uctypes.ARRAY, 32 | uctypes.UINT8),
+        "appId": (32 | uctypes.ARRAY, 32 | uctypes.UINT8),
+        "keyHandleLen": 64 | uctypes.UINT8,
+        "keyHandle": (65 | uctypes.ARRAY, khlen | uctypes.UINT8),
     }
 
 
@@ -177,17 +168,17 @@ def resp_cmd_authenticate(siglen: int) -> dict:
     # uint8_t sig[siglen];  // Signature
     # uint16_t status;
     return {
-        'flags':           0 | uctypes.UINT8,
-        'ctr':             1 | uctypes.UINT32,
-        'sig':            (5 | uctypes.ARRAY, siglen | uctypes.UINT8),
-        'status': status_ofs | uctypes.UINT16,
+        "flags": 0 | uctypes.UINT8,
+        "ctr": 1 | uctypes.UINT32,
+        "sig": (5 | uctypes.ARRAY, siglen | uctypes.UINT8),
+        "status": status_ofs | uctypes.UINT16,
     }
 
 
 def overlay_struct(buf, desc):
     desc_size = uctypes.sizeof(desc, uctypes.BIG_ENDIAN)
     if desc_size > len(buf):
-        raise ValueError('desc is too big (%d > %d)' % (desc_size, len(buf)))
+        raise ValueError("desc is too big (%d > %d)" % (desc_size, len(buf)))
     return uctypes.struct(uctypes.addressof(buf), desc, uctypes.BIG_ENDIAN)
 
 
@@ -198,8 +189,9 @@ def make_struct(desc):
 
 
 class Msg:
-
-    def __init__(self, cid: int, cla: int, ins: int, p1: int, p2: int, lc: int, data: bytes) -> None:
+    def __init__(
+        self, cid: int, cla: int, ins: int, p1: int, p2: int, lc: int, data: bytes
+    ) -> None:
         self.cid = cid
         self.cla = cla
         self.ins = ins
@@ -210,7 +202,6 @@ class Msg:
 
 
 class Cmd:
-
     def __init__(self, cid: int, cmd: int, data: bytes) -> None:
         self.cid = cid
         self.cmd = cmd
@@ -221,17 +212,19 @@ class Cmd:
         ins = self.data[_APDU_INS]
         p1 = self.data[_APDU_P1]
         p2 = self.data[_APDU_P2]
-        lc = (self.data[_APDU_LC1] << 16) + \
-            (self.data[_APDU_LC2] << 8) + \
-            (self.data[_APDU_LC3])
-        data = self.data[_APDU_DATA:_APDU_DATA + lc]
+        lc = (
+            (self.data[_APDU_LC1] << 16)
+            + (self.data[_APDU_LC2] << 8)
+            + (self.data[_APDU_LC3])
+        )
+        data = self.data[_APDU_DATA : _APDU_DATA + lc]
         return Msg(self.cid, cla, ins, p1, p2, lc, data)
 
 
 async def read_cmd(iface: io.HID) -> Cmd:
     desc_init = frame_init()
     desc_cont = frame_cont()
-    read = loop.select(iface.iface_num() | io.POLL_READ)
+    read = loop.wait(iface.iface_num() | io.POLL_READ)
 
     buf = await read
 
@@ -244,7 +237,7 @@ async def read_cmd(iface: io.HID) -> Cmd:
     if ifrm.cmd & _TYPE_MASK == _TYPE_CONT:
         # unexpected cont packet, abort current msg
         if __debug__:
-            log.warning(__name__, '_TYPE_CONT')
+            log.warning(__name__, "_TYPE_CONT")
         return None
 
     if datalen < bcnt:
@@ -262,13 +255,13 @@ async def read_cmd(iface: io.HID) -> Cmd:
         if cfrm.seq == _CMD_INIT:
             # _CMD_INIT frame, cancels current channel
             ifrm = overlay_struct(buf, desc_init)
-            data = ifrm.data[:ifrm.bcnt]
+            data = ifrm.data[: ifrm.bcnt]
             break
 
         if cfrm.cid != ifrm.cid:
             # cont frame for a different channel, reply with BUSY and skip
             if __debug__:
-                log.warning(__name__, '_ERR_CHANNEL_BUSY')
+                log.warning(__name__, "_ERR_CHANNEL_BUSY")
             await send_cmd(cmd_error(cfrm.cid, _ERR_CHANNEL_BUSY), iface)
             continue
 
@@ -276,7 +269,7 @@ async def read_cmd(iface: io.HID) -> Cmd:
             # cont frame for this channel, but incorrect seq number, abort
             # current msg
             if __debug__:
-                log.warning(__name__, '_ERR_INVALID_SEQ')
+                log.warning(__name__, "_ERR_INVALID_SEQ")
             await send_cmd(cmd_error(cfrm.cid, _ERR_INVALID_SEQ), iface)
             return None
 
@@ -304,7 +297,7 @@ async def send_cmd(cmd: Cmd, iface: io.HID) -> None:
     if offset < datalen:
         frm = overlay_struct(buf, cont_desc)
 
-    write = loop.select(iface.iface_num() | io.POLL_WRITE)
+    write = loop.wait(iface.iface_num() | io.POLL_WRITE)
     while offset < datalen:
         frm.seq = seq
         offset += utils.memcpy(frm.data, 0, cmd.data, offset, datalen)
@@ -339,7 +332,6 @@ _CONFIRM_TIMEOUT_MS = const(10 * 1000)
 
 
 class ConfirmState:
-
     def __init__(self) -> None:
         self.reset()
 
@@ -356,12 +348,12 @@ class ConfirmState:
         if self.action != action or self.checksum != checksum:
             return False
         if utime.ticks_ms() >= self.deadline:
+            if self.workflow is not None:
+                loop.close(self.workflow)
             return False
         return True
 
     def setup(self, action: int, checksum: bytes, app_id: bytes) -> None:
-        if self.workflow is not None:
-            loop.close(self.workflow)
         if workflow.workflows:
             return False
 
@@ -390,24 +382,23 @@ class ConfirmState:
         from trezor.ui.confirm import ConfirmDialog, CONFIRMED
         from trezor.ui.text import Text
 
-        if bytes(self.app_id) == _BOGUS_APPID:
-            text = Text(
-                'U2F mismatch', ui.ICON_WRONG,
-                'Another U2F device',
-                'was used to register',
-                'in this application.',
-                icon_color=ui.RED)
+        app_id = bytes(self.app_id)  # could be bytearray, which doesn't have __hash__
+
+        if app_id == _BOGUS_APPID and self.action == _CONFIRM_REGISTER:
+            text = Text("U2F", ui.ICON_WRONG, icon_color=ui.RED)
+            text.normal(
+                "Another U2F device", "was used to register", "in this application."
+            )
             text.render()
-            await loop.sleep(3 * 1000 * 1000)
-            self.confirmed = True
+            dialog = ConfirmDialog(text)
         else:
-            content = ConfirmContent(self.action, self.app_id)
-            dialog = ConfirmDialog(content, )
-            self.confirmed = await dialog == CONFIRMED
+            content = ConfirmContent(self.action, app_id)
+            dialog = ConfirmDialog(content)
+
+        self.confirmed = await dialog == CONFIRMED
 
 
 class ConfirmContent(ui.Widget):
-
     def __init__(self, action: int, app_id: bytes) -> None:
         self.action = action
         self.app_id = app_id
@@ -418,31 +409,31 @@ class ConfirmContent(ui.Widget):
     def boot(self) -> None:
         from ubinascii import hexlify
         from trezor import res
-        from . import knownapps
+        from apps.fido_u2f import knownapps
 
-        app_id = bytes(self.app_id)  # could be bytearray, which doesn't have __hash__
-
-        if app_id == _BOGUS_APPID:
-            # TODO: display a warning dialog for bogus app ids
-            name = 'Another U2F device'
-            icon = res.load('apps/fido_u2f/res/u2f_generic.toif')  # TODO: warning icon
-        elif app_id in knownapps.knownapps:
-            name = knownapps.knownapps[app_id]
+        if self.app_id in knownapps.knownapps:
+            name = knownapps.knownapps[self.app_id]
             try:
-                icon = res.load('apps/fido_u2f/res/u2f_%s.toif' % name.lower().replace(' ', '_'))
-            except Exception:
-                icon = res.load('apps/fido_u2f/res/u2f_generic.toif')
+                namepart = name.lower().replace(" ", "_")
+                icon = res.load("apps/fido_u2f/res/u2f_%s.toif" % namepart)
+            except Exception as e:
+                icon = res.load("apps/fido_u2f/res/u2f_generic.toif")
+                if __debug__:
+                    log.exception(__name__, e)
         else:
-            name = '%s...%s' % (hexlify(app_id[:4]).decode(), hexlify(app_id[-4:]).decode())
-            icon = res.load('apps/fido_u2f/res/u2f_generic.toif')
+            name = "%s...%s" % (
+                hexlify(self.app_id[:4]).decode(),
+                hexlify(self.app_id[-4:]).decode(),
+            )
+            icon = res.load("apps/fido_u2f/res/u2f_generic.toif")
         self.app_name = name
         self.app_icon = icon
 
     def render(self) -> None:
         if self.action == _CONFIRM_REGISTER:
-            header = 'U2F Register'
+            header = "U2F Register"
         else:
-            header = 'U2F Authenticate'
+            header = "U2F Authenticate"
         ui.header(header, ui.ICON_DEFAULT, ui.GREEN, ui.BG, ui.GREEN)
         ui.display.image((ui.WIDTH - 64) // 2, 64, self.app_icon)
         ui.display.text_center(ui.WIDTH // 2, 168, self.app_name, ui.MONO, ui.FG, ui.BG)
@@ -454,46 +445,46 @@ def dispatch_cmd(req: Cmd, state: ConfirmState) -> Cmd:
 
         if m.cla != 0:
             if __debug__:
-                log.warning(__name__, '_SW_CLA_NOT_SUPPORTED')
+                log.warning(__name__, "_SW_CLA_NOT_SUPPORTED")
             return msg_error(req.cid, _SW_CLA_NOT_SUPPORTED)
 
         if m.lc + _APDU_DATA > len(req.data):
             if __debug__:
-                log.warning(__name__, '_SW_WRONG_LENGTH')
+                log.warning(__name__, "_SW_WRONG_LENGTH")
             return msg_error(req.cid, _SW_WRONG_LENGTH)
 
         if m.ins == _MSG_REGISTER:
             if __debug__:
-                log.debug(__name__, '_MSG_REGISTER')
+                log.debug(__name__, "_MSG_REGISTER")
             return msg_register(m, state)
         elif m.ins == _MSG_AUTHENTICATE:
             if __debug__:
-                log.debug(__name__, '_MSG_AUTHENTICATE')
+                log.debug(__name__, "_MSG_AUTHENTICATE")
             return msg_authenticate(m, state)
         elif m.ins == _MSG_VERSION:
             if __debug__:
-                log.debug(__name__, '_MSG_VERSION')
+                log.debug(__name__, "_MSG_VERSION")
             return msg_version(m)
         else:
             if __debug__:
-                log.warning(__name__, '_SW_INS_NOT_SUPPORTED: %d', m.ins)
+                log.warning(__name__, "_SW_INS_NOT_SUPPORTED: %d", m.ins)
             return msg_error(req.cid, _SW_INS_NOT_SUPPORTED)
 
     elif req.cmd == _CMD_INIT:
         if __debug__:
-            log.debug(__name__, '_CMD_INIT')
+            log.debug(__name__, "_CMD_INIT")
         return cmd_init(req)
     elif req.cmd == _CMD_PING:
         if __debug__:
-            log.debug(__name__, '_CMD_PING')
+            log.debug(__name__, "_CMD_PING")
         return req
     elif req.cmd == _CMD_WINK:
         if __debug__:
-            log.debug(__name__, '_CMD_WINK')
+            log.debug(__name__, "_CMD_WINK")
         return req
     else:
         if __debug__:
-            log.warning(__name__, '_ERR_INVALID_CMD: %d', req.cmd)
+            log.warning(__name__, "_ERR_INVALID_CMD: %d", req.cmd)
         return cmd_error(req.cid, _ERR_INVALID_CMD)
 
 
@@ -502,7 +493,7 @@ def cmd_init(req: Cmd) -> Cmd:
         return cmd_error(req.cid, _ERR_INVALID_CID)
     elif req.cid == _CID_BROADCAST:
         # uint32_t except 0 and 0xffffffff
-        resp_cid = random.uniform(0xfffffffe) + 1
+        resp_cid = random.uniform(0xFFFFFFFE) + 1
     else:
         resp_cid = req.cid
 
@@ -523,13 +514,13 @@ def msg_register(req: Msg, state: ConfirmState) -> Cmd:
 
     if not storage.is_initialized():
         if __debug__:
-            log.warning(__name__, 'not initialized')
+            log.warning(__name__, "not initialized")
         return msg_error(req.cid, _SW_CONDITIONS_NOT_SATISFIED)
 
     # check length of input data
     if len(req.data) != 64:
         if __debug__:
-            log.warning(__name__, '_SW_WRONG_LENGTH req.data')
+            log.warning(__name__, "_SW_WRONG_LENGTH req.data")
         return msg_error(req.cid, _SW_WRONG_LENGTH)
 
     # parse challenge and app_id
@@ -545,12 +536,12 @@ def msg_register(req: Msg, state: ConfirmState) -> Cmd:
     # wait for a button or continue
     if not state.confirmed:
         if __debug__:
-            log.info(__name__, 'waiting for button')
+            log.info(__name__, "waiting for button")
         return msg_error(req.cid, _SW_CONDITIONS_NOT_SATISFIED)
 
     # sign the registration challenge and return
     if __debug__:
-        log.info(__name__, 'signing register')
+        log.info(__name__, "signing register")
     buf = msg_register_sign(chal, app_id)
 
     state.reset()
@@ -563,15 +554,15 @@ def msg_register_sign(challenge: bytes, app_id: bytes) -> bytes:
     from apps.common import seed
 
     # derivation path is m/U2F'/r'/r'/r'/r'/r'/r'/r'/r'
-    keypath = [0x80000000 | random.uniform(0xf0000000) for _ in range(0, 8)]
+    keypath = [HARDENED | random.uniform(0xF0000000) for _ in range(0, 8)]
     nodepath = [_U2F_KEY_PATH] + keypath
 
     # prepare signing key from random path, compute decompressed public key
-    node = seed.derive_node_without_passphrase(nodepath, 'nist256p1')
+    node = seed.derive_node_without_passphrase(nodepath, "nist256p1")
     pubkey = nist256p1.publickey(node.private_key(), False)
 
     # first half of keyhandle is keypath
-    keybuf = ustruct.pack('>8L', *keypath)
+    keybuf = ustruct.pack("<8L", *keypath)
 
     # second half of keyhandle is a hmac of app_id and keypath
     keybase = hmac.Hmac(node.private_key(), app_id, hashlib.sha256)
@@ -580,12 +571,12 @@ def msg_register_sign(challenge: bytes, app_id: bytes) -> bytes:
 
     # hash the request data together with keyhandle and pubkey
     dig = hashlib.sha256()
-    dig.update(b'\x00')    # uint8_t reserved;
-    dig.update(app_id)     # uint8_t appId[32];
+    dig.update(b"\x00")  # uint8_t reserved;
+    dig.update(app_id)  # uint8_t appId[32];
     dig.update(challenge)  # uint8_t chal[32];
-    dig.update(keybuf)     # uint8_t keyHandle[64];
+    dig.update(keybuf)  # uint8_t keyHandle[64];
     dig.update(keybase)
-    dig.update(pubkey)     # uint8_t pubKey[65];
+    dig.update(pubkey)  # uint8_t pubKey[65];
     dig = dig.digest()
 
     # sign the digest and convert to der
@@ -593,8 +584,9 @@ def msg_register_sign(challenge: bytes, app_id: bytes) -> bytes:
     sig = der.encode_seq((sig[1:33], sig[33:]))
 
     # pack to a response
-    buf, resp = make_struct(resp_cmd_register(
-        len(keybuf) + len(keybase), len(_U2F_ATT_CERT), len(sig)))
+    buf, resp = make_struct(
+        resp_cmd_register(len(keybuf) + len(keybase), len(_U2F_ATT_CERT), len(sig))
+    )
     resp.registerId = _U2F_REGISTER_ID
     utils.memcpy(resp.pubKey, 0, pubkey, 0, len(pubkey))
     resp.keyHandleLen = len(keybuf) + len(keybase)
@@ -612,26 +604,31 @@ def msg_authenticate(req: Msg, state: ConfirmState) -> Cmd:
 
     if not storage.is_initialized():
         if __debug__:
-            log.warning(__name__, 'not initialized')
+            log.warning(__name__, "not initialized")
         return msg_error(req.cid, _SW_CONDITIONS_NOT_SATISFIED)
 
     # we need at least keyHandleLen
     if len(req.data) <= _REQ_CMD_AUTHENTICATE_KHLEN:
         if __debug__:
-            log.warning(__name__, '_SW_WRONG_LENGTH req.data')
+            log.warning(__name__, "_SW_WRONG_LENGTH req.data")
         return msg_error(req.cid, _SW_WRONG_LENGTH)
 
     # check keyHandleLen
     khlen = req.data[_REQ_CMD_AUTHENTICATE_KHLEN]
     if khlen != 64:
         if __debug__:
-            log.warning(__name__, '_SW_WRONG_LENGTH khlen')
+            log.warning(__name__, "_SW_WRONG_LENGTH khlen")
         return msg_error(req.cid, _SW_WRONG_LENGTH)
 
     auth = overlay_struct(req.data, req_cmd_authenticate(khlen))
 
     # check the keyHandle and generate the signing key
-    node = msg_authenticate_genkey(auth.appId, auth.keyHandle)
+    node = msg_authenticate_genkey(auth.appId, auth.keyHandle, "<8L")
+    if node is None:
+        # prior to firmware version 2.0.8, keypath was serialized in a
+        # big-endian manner, instead of little endian, like in trezor-mcu.
+        # try to parse it as big-endian now and check the HMAC.
+        node = msg_authenticate_genkey(auth.appId, auth.keyHandle, ">8L")
     if node is None:
         # specific error logged in msg_authenticate_genkey
         return msg_error(req.cid, _SW_WRONG_DATA)
@@ -639,13 +636,13 @@ def msg_authenticate(req: Msg, state: ConfirmState) -> Cmd:
     # if _AUTH_CHECK_ONLY is requested, return, because keyhandle has been checked already
     if req.p1 == _AUTH_CHECK_ONLY:
         if __debug__:
-            log.info(__name__, '_AUTH_CHECK_ONLY')
+            log.info(__name__, "_AUTH_CHECK_ONLY")
         return msg_error(req.cid, _SW_CONDITIONS_NOT_SATISFIED)
 
     # from now on, only _AUTH_ENFORCE is supported
     if req.p1 != _AUTH_ENFORCE:
         if __debug__:
-            log.info(__name__, '_AUTH_ENFORCE')
+            log.info(__name__, "_AUTH_ENFORCE")
         return msg_error(req.cid, _SW_WRONG_DATA)
 
     # check equality with last request
@@ -657,12 +654,12 @@ def msg_authenticate(req: Msg, state: ConfirmState) -> Cmd:
     # wait for a button or continue
     if not state.confirmed:
         if __debug__:
-            log.info(__name__, 'waiting for button')
+            log.info(__name__, "waiting for button")
         return msg_error(req.cid, _SW_CONDITIONS_NOT_SATISFIED)
 
     # sign the authentication challenge and return
     if __debug__:
-        log.info(__name__, 'signing authentication')
+        log.info(__name__, "signing authentication")
     buf = msg_authenticate_sign(auth.chal, auth.appId, node.private_key())
 
     state.reset()
@@ -670,23 +667,23 @@ def msg_authenticate(req: Msg, state: ConfirmState) -> Cmd:
     return Cmd(req.cid, _CMD_MSG, buf)
 
 
-def msg_authenticate_genkey(app_id: bytes, keyhandle: bytes):
+def msg_authenticate_genkey(app_id: bytes, keyhandle: bytes, pathformat: str):
     from apps.common import seed
 
     # unpack the keypath from the first half of keyhandle
     keybuf = keyhandle[:32]
-    keypath = ustruct.unpack('>8L', keybuf)
+    keypath = ustruct.unpack(pathformat, keybuf)
 
     # check high bit for hardened keys
     for i in keypath:
-        if not i & 0x80000000:
+        if not i & HARDENED:
             if __debug__:
-                log.warning(__name__, 'invalid key path')
+                log.warning(__name__, "invalid key path")
             return None
 
     # derive the signing key
     nodepath = [_U2F_KEY_PATH] + list(keypath)
-    node = seed.derive_node_without_passphrase(nodepath, 'nist256p1')
+    node = seed.derive_node_without_passphrase(nodepath, "nist256p1")
 
     # second half of keyhandle is a hmac of app_id and keypath
     keybase = hmac.Hmac(node.private_key(), app_id, hashlib.sha256)
@@ -696,7 +693,7 @@ def msg_authenticate_genkey(app_id: bytes, keyhandle: bytes):
     # verify the hmac
     if keybase != keyhandle[32:]:
         if __debug__:
-            log.warning(__name__, 'invalid key handle')
+            log.warning(__name__, "invalid key handle")
         return None
 
     return node
@@ -707,13 +704,13 @@ def msg_authenticate_sign(challenge: bytes, app_id: bytes, privkey: bytes) -> by
 
     # get next counter
     ctr = storage.next_u2f_counter()
-    ctrbuf = ustruct.pack('>L', ctr)
+    ctrbuf = ustruct.pack(">L", ctr)
 
     # hash input data together with counter
     dig = hashlib.sha256()
-    dig.update(app_id)     # uint8_t appId[32];
-    dig.update(flags)      # uint8_t flags;
-    dig.update(ctrbuf)     # uint8_t ctr[4];
+    dig.update(app_id)  # uint8_t appId[32];
+    dig.update(flags)  # uint8_t flags;
+    dig.update(ctrbuf)  # uint8_t ctr[4];
     dig.update(challenge)  # uint8_t chal[32];
     dig = dig.digest()
 
@@ -734,12 +731,12 @@ def msg_authenticate_sign(challenge: bytes, app_id: bytes, privkey: bytes) -> by
 def msg_version(req: Msg) -> Cmd:
     if req.data:
         return msg_error(req.cid, _SW_WRONG_LENGTH)
-    return Cmd(req.cid, _CMD_MSG, b'U2F_V2\x90\x00')  # includes _SW_NO_ERROR
+    return Cmd(req.cid, _CMD_MSG, b"U2F_V2\x90\x00")  # includes _SW_NO_ERROR
 
 
 def msg_error(cid: int, code: int) -> Cmd:
-    return Cmd(cid, _CMD_MSG, ustruct.pack('>H', code))
+    return Cmd(cid, _CMD_MSG, ustruct.pack(">H", code))
 
 
 def cmd_error(cid: int, code: int) -> Cmd:
-    return Cmd(cid, _CMD_ERROR, ustruct.pack('>B', code))
+    return Cmd(cid, _CMD_ERROR, ustruct.pack(">B", code))

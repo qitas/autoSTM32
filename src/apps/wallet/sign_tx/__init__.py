@@ -1,15 +1,25 @@
 from trezor import ui, wire
+from trezor.messages.MessageType import TxAck
 from trezor.messages.RequestType import TXFINISHED
-from trezor.messages.wire_types import TxAck
-from apps.common import seed
+from trezor.messages.TxRequest import TxRequest
+
+from apps.common import coins, seed
+from apps.wallet.sign_tx.helpers import (
+    UiConfirmFeeOverThreshold,
+    UiConfirmForeignAddress,
+    UiConfirmOutput,
+    UiConfirmTotal,
+)
 
 
 @ui.layout
 async def sign_tx(ctx, msg):
     from apps.wallet.sign_tx import layout, progress, signing
 
+    coin_name = msg.coin_name or "Bitcoin"
+    coin = coins.by_name(coin_name)
     # TODO: rework this so we don't have to pass root to signing.sign_tx
-    root = await seed.derive_node(ctx, [])
+    root = await seed.derive_node(ctx, [], curve_name=coin.curve_name)
 
     signer = signing.sign_tx(msg, root)
     res = None
@@ -17,28 +27,30 @@ async def sign_tx(ctx, msg):
         try:
             req = signer.send(res)
         except signing.SigningError as e:
-            raise wire.FailureError(*e.args)
+            raise wire.Error(*e.args)
         except signing.MultisigError as e:
-            raise wire.FailureError(*e.args)
+            raise wire.Error(*e.args)
         except signing.AddressError as e:
-            raise wire.FailureError(*e.args)
+            raise wire.Error(*e.args)
         except signing.ScriptsError as e:
-            raise wire.FailureError(*e.args)
+            raise wire.Error(*e.args)
         except signing.Bip143Error as e:
-            raise wire.FailureError(*e.args)
-        if req.__qualname__ == 'TxRequest':
+            raise wire.Error(*e.args)
+        if isinstance(req, TxRequest):
             if req.request_type == TXFINISHED:
                 break
             res = await ctx.call(req, TxAck)
-        elif req.__qualname__ == 'UiConfirmOutput':
+        elif isinstance(req, UiConfirmOutput):
             res = await layout.confirm_output(ctx, req.output, req.coin)
             progress.report_init()
-        elif req.__qualname__ == 'UiConfirmTotal':
+        elif isinstance(req, UiConfirmTotal):
             res = await layout.confirm_total(ctx, req.spending, req.fee, req.coin)
             progress.report_init()
-        elif req.__qualname__ == 'UiConfirmFeeOverThreshold':
+        elif isinstance(req, UiConfirmFeeOverThreshold):
             res = await layout.confirm_feeoverthreshold(ctx, req.fee, req.coin)
             progress.report_init()
+        elif isinstance(req, UiConfirmForeignAddress):
+            res = await layout.confirm_foreign_address(ctx, req.address_n, req.coin)
         else:
-            raise TypeError('Invalid signing instruction')
+            raise TypeError("Invalid signing instruction")
     return req

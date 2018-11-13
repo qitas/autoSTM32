@@ -31,25 +31,20 @@ void __attribute__((noreturn)) __fatal_error(const char *expr, const char *msg, 
     display_orientation(0);
     display_backlight(255);
     display_print_color(COLOR_WHITE, COLOR_FATAL_ERROR);
-    //display_bar(0, 0, DISPLAY_RESX, DISPLAY_RESY, COLOR_FATAL_ERROR);
-    //display_text_center(120, 30, "Oazon Wallet", -1, 1, COLOR_BLACK, COLOR_WHITE);
-    //display_text_center(120, 50, "FATAL ERROR", -1, 1, COLOR_BLACK, COLOR_WHITE);
-    //display_printf("\n OAZON FATAL ERROR: \n");
+    display_printf("\nFATAL ERROR:\n");
     if (expr) {
-        display_printf("OAZON FATAL ERROR expr:\n   %s\n", expr);
+        display_printf("expr: %s\n", expr);
     }
     if (msg) {
-        display_printf("OAZON FATAL ERROR msg : \n   %s\n", msg);
+        display_printf("msg : %s\n", msg);
     }
     if (file) {
-        display_printf("OAZON FATAL ERROR file:\n    %s:%d\n", file, line);
+        display_printf("file: %s:%d\n", file, line);
     }
     if (func) {
-        display_printf("OAZON FATAL ERROR func:\n    %s\n", func);
+        display_printf("func: %s\n", func);
     }
 #ifdef GITREV
-#define XSTR(s) STR(s)
-#define STR(s) #s
     display_printf("rev : %s\n", XSTR(GITREV));
 #endif
     shutdown();

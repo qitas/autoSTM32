@@ -14,15 +14,15 @@
 #
 
 # 58 character alphabet used
-_alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+_alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 
 
-def encode(data: bytes) -> str:
-    '''
+def encode(data: bytes, alphabet=_alphabet) -> str:
+    """
     Convert bytes to base58 encoded string.
-    '''
+    """
     origlen = len(data)
-    data = data.lstrip(b'\0')
+    data = data.lstrip(b"\0")
     newlen = len(data)
 
     p, acc = 1, 0
@@ -30,25 +30,25 @@ def encode(data: bytes) -> str:
         acc += p * c
         p = p << 8
 
-    result = ''
+    result = ""
     while acc > 0:
         acc, mod = divmod(acc, 58)
-        result += _alphabet[mod]
+        result += alphabet[mod]
 
-    return ''.join((c for c in reversed(result + _alphabet[0] * (origlen - newlen))))
+    return "".join((c for c in reversed(result + alphabet[0] * (origlen - newlen))))
 
 
-def decode(string: str) -> bytes:
-    '''
+def decode(string: str, alphabet=_alphabet) -> bytes:
+    """
     Convert base58 encoded string to bytes.
-    '''
+    """
     origlen = len(string)
-    string = string.lstrip(_alphabet[0])
+    string = string.lstrip(alphabet[0])
     newlen = len(string)
 
     p, acc = 1, 0
     for c in reversed(string):
-        acc += p * _alphabet.index(c)
+        acc += p * alphabet.index(c)
         p *= 58
 
     result = []
@@ -59,27 +59,50 @@ def decode(string: str) -> bytes:
     return bytes((b for b in reversed(result + [0] * (origlen - newlen))))
 
 
-def _dsha256_32(data: bytes) -> bytes:
+def sha256d_32(data: bytes) -> bytes:
     from .hashlib import sha256
+
     return sha256(sha256(data).digest()).digest()[:4]
 
 
-def encode_check(data: bytes, digestfunc=_dsha256_32) -> str:
-    '''
+def groestl512d_32(data: bytes) -> bytes:
+    from .hashlib import groestl512
+
+    return groestl512(groestl512(data).digest()).digest()[:4]
+
+
+def blake256d_32(data: bytes) -> bytes:
+    from .hashlib import blake256
+
+    return blake256(blake256(data).digest()).digest()[:4]
+
+
+def keccak_32(data: bytes) -> bytes:
+    from .hashlib import sha3_256
+
+    return sha3_256(data, keccak=True).digest()[:4]
+
+
+def encode_check(data: bytes, digestfunc=sha256d_32) -> str:
+    """
     Convert bytes to base58 encoded string, append checksum.
-    '''
+    """
     return encode(data + digestfunc(data))
 
 
-def decode_check(string: str, digestfunc=_dsha256_32) -> bytes:
-    '''
+def decode_check(string: str, digestfunc=sha256d_32) -> bytes:
+    """
     Convert base58 encoded string to bytes and verify checksum.
-    '''
+    """
     result = decode(string)
-    digestlen = len(digestfunc(b''))
-    result, check = result[:-digestlen], result[-digestlen:]
+    return verify_checksum(result, digestfunc)
+
+
+def verify_checksum(data: bytes, digestfunc) -> bytes:
+    digestlen = len(digestfunc(b""))
+    result, check = data[:-digestlen], data[-digestlen:]
 
     if check != digestfunc(result):
-        raise ValueError('Invalid checksum')
+        raise ValueError("Invalid checksum")
 
     return result
