@@ -15,7 +15,7 @@
   "xprv_magic": 76066276,
   "xpub_magic": 76067358,
   "xpub_magic_segwit_p2sh": 77429938,
-  "xpub_magic_segwit_native": null,
+  "xpub_magic_segwit_native": 78792518,
   "bech32_prefix": "dgb",
   "cashaddr_prefix": null,
   "slip44": 20,
@@ -35,9 +35,11 @@
   "uri_prefix": "digibyte",
   "min_address_length": 27,
   "max_address_length": 34,
-  "bitcore": [
-    "https://explorer.digibyteprojects.com"
+  "bitcore": [],
+  "blockbook": [
+    "https://dgb1.trezor.io",
+    "https://dgb2.trezor.io"
   ],
-  "blockbook": [],
-  "cooldown": 100
+  "cooldown": 100,
+  "consensus_branch_id": null
 }

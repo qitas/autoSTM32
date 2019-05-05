@@ -2,7 +2,6 @@ from micropython import const
 
 from trezor.messages import MessageType
 
-STELLAR_CURVE = "ed25519"
 TX_TYPE = bytearray("\x00\x00\x00\x02")
 
 # source: https://github.com/stellar/go/blob/3d2c1defe73dbfed00146ebe0e8d7e07ce4bb1b6/xdr/Stellar-transaction.x#L16
@@ -65,6 +64,8 @@ MEMO_TYPE_RETURN = const(4)
 SIGN_TYPE_ACCOUNT = const(0)
 SIGN_TYPE_PRE_AUTH = const(1)
 SIGN_TYPE_HASH = const(2)
+
+SIGN_TYPES = (SIGN_TYPE_ACCOUNT, SIGN_TYPE_HASH, SIGN_TYPE_PRE_AUTH)
 
 
 def get_op_code(msg) -> int:

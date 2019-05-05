@@ -22,22 +22,30 @@
 
 #include "flash.h"
 
-#define NORCOW_SECTOR_COUNT  2
+#define NORCOW_HEADER_LEN 0
+#define NORCOW_SECTOR_COUNT 2
 
 #if TREZOR_MODEL == T
 
-#define NORCOW_SECTOR_SIZE  (64*1024)
-#define NORCOW_SECTORS      {FLASH_SECTOR_STORAGE_1, FLASH_SECTOR_STORAGE_2}
+#define NORCOW_SECTOR_SIZE (64 * 1024)
+#define NORCOW_SECTORS \
+  { FLASH_SECTOR_STORAGE_1, FLASH_SECTOR_STORAGE_2 }
 
 #elif TREZOR_MODEL == 1
 
-#define NORCOW_SECTOR_SIZE  (16*1024)
-#define NORCOW_SECTORS      {2, 3}
+#define NORCOW_SECTOR_SIZE (16 * 1024)
+#define NORCOW_SECTORS \
+  { 2, 3 }
 
 #else
 
 #error Unknown TREZOR Model
 
 #endif
+
+/*
+ * Current storage version.
+ */
+#define NORCOW_VERSION ((uint32_t)0x00000001)
 
 #endif

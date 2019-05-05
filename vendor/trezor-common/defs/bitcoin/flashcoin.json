@@ -15,8 +15,8 @@
   "xprv_magic": 76066276,
   "xpub_magic": 76067358,
   "xpub_magic_segwit_p2sh": 77429938,
-  "xpub_magic_segwit_native": null,
-  "bech32_prefix": null,
+  "xpub_magic_segwit_native": 78792518,
+  "bech32_prefix": "flash",
   "cashaddr_prefix": null,
   "slip44": 120,
   "segwit": true,
@@ -36,5 +36,6 @@
     "https://explorer.flashcoin.io"
   ],
   "blockbook": [],
-  "cooldown": 100
+  "cooldown": 100,
+  "consensus_branch_id": null
 }

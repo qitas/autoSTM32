@@ -5,15 +5,19 @@ from trezor.messages.RippleSignedTx import RippleSignedTx
 from trezor.messages.RippleSignTx import RippleSignTx
 from trezor.wire import ProcessError
 
-from . import helpers, layout
-from .serialize import serialize
+from apps.common import paths
+from apps.ripple import CURVE, helpers, layout
+from apps.ripple.serialize import serialize
 
-from apps.common import seed
 
-
-async def sign_tx(ctx, msg: RippleSignTx):
+async def sign_tx(ctx, msg: RippleSignTx, keychain):
     validate(msg)
-    node = await seed.derive_node(ctx, msg.address_n)
+
+    await paths.validate_path(
+        ctx, helpers.validate_full_path, keychain, msg.address_n, CURVE
+    )
+
+    node = keychain.derive(msg.address_n)
     source_address = helpers.address_from_public_key(node.public_key())
 
     set_canonical_flag(msg)
@@ -21,6 +25,8 @@ async def sign_tx(ctx, msg: RippleSignTx):
     to_sign = get_network_prefix() + tx
 
     check_fee(msg.fee)
+    if msg.payment.destination_tag is not None:
+        await layout.require_confirm_destination_tag(ctx, msg.payment.destination_tag)
     await layout.require_confirm_fee(ctx, msg.fee)
     await layout.require_confirm_tx(ctx, msg.payment.destination, msg.payment.amount)
 

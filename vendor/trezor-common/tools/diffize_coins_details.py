@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 
-import click
 import json
 import os
-import requests
-import tempfile
 import subprocess
-import sys
+import tempfile
 
+import click
+import requests
 
 LIVE_URL = "https://trezor.io/static/json/coins_details.json"
 COINS_DETAILS = os.path.join(
@@ -24,7 +23,7 @@ def diffize_file(coins_details, tmp):
         for link in links:
             links[link] = links[link].rstrip("/")
         for wallet in wallets:
-            wallets[wallet] = wallets[wallet].rstrip("/")
+            wallet["url"] = wallet["url"].rstrip("/")
 
         if not coin.get("wallet"):
             coin.pop("wallet", None)

@@ -1,16 +1,27 @@
 from trezor.messages import InputScriptType
 from trezor.messages.Address import Address
 
-from apps.common import coins, seed
+from apps.common import coins
 from apps.common.layout import address_n_to_str, show_address, show_qr
+from apps.common.paths import validate_path
 from apps.wallet.sign_tx import addresses
 
 
-async def get_address(ctx, msg):
+async def get_address(ctx, msg, keychain):
     coin_name = msg.coin_name or "Bitcoin"
     coin = coins.by_name(coin_name)
 
-    node = await seed.derive_node(ctx, msg.address_n, curve_name=coin.curve_name)
+    await validate_path(
+        ctx,
+        addresses.validate_full_path,
+        keychain,
+        msg.address_n,
+        coin.curve_name,
+        coin=coin,
+        script_type=msg.script_type,
+    )
+
+    node = keychain.derive(msg.address_n, coin.curve_name)
     address = addresses.get_address(msg.script_type, coin, node, msg.multisig)
     address_short = addresses.address_short(coin, address)
 

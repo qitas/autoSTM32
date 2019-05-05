@@ -20,7 +20,7 @@ class InvalidDecimals : InvalidTokenException("Decimals must be a number")
 class InvalidFileName : InvalidTokenException("Filename must be the address + .json")
 class InvalidWebsite : InvalidTokenException("Website invalid")
 class InvalidJSON(message: String?) : InvalidTokenException("JSON invalid $message")
-class InvalidDeprecationMigrationType : InvalidTokenException("Invalid Deprecation Migration type - currently only auto is allowed")
+class InvalidDeprecationMigrationType : InvalidTokenException("Invalid Deprecation Migration type - currently only auto and instructions: is allowed")
 class InvalidDeprecationTime : InvalidTokenException("Invalid Deprecation Time - Must be ISO8601")
 
 fun checkTokenFile(file: File) {
@@ -47,7 +47,8 @@ fun checkTokenFile(file: File) {
         val token = moshi.adapter(Token::class.java).failOnUnknown().fromJson(file.readText())
 
         token?.deprecation?.let {
-            if (it.migration_type ?: "auto" != "auto") {
+            val safeMigrationType: String = it.migration_type ?: "auto"
+            if (safeMigrationType != "auto" && !safeMigrationType.startsWith("instructions:")) {
                 throw InvalidDeprecationMigrationType()
             }
 

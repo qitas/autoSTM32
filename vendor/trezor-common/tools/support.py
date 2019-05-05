@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-import re
+import json
 import os
+import re
 import subprocess
 import sys
+
 import click
+
 import coin_info
-import json
 
 SUPPORT_INFO = coin_info.get_support_data()
 
@@ -401,8 +403,7 @@ def release(
         ]
         for coin in soon_list:
             key = coin["key"]
-            print(f"Releasing {key} ({coin['name']}) marked 'soon'")
-            set_supported(device, key, version)
+            maybe_add(coin, "soon")
 
     # process missing (not listed) supportinfos
     if release_missing:

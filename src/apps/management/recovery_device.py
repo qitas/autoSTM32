@@ -1,5 +1,6 @@
 from trezor import config, ui, wire
 from trezor.crypto import bip39
+from trezor.crypto.hashlib import sha256
 from trezor.messages.ButtonRequest import ButtonRequest
 from trezor.messages.ButtonRequestType import (
     MnemonicInput,
@@ -12,11 +13,11 @@ from trezor.pin import pin_to_int
 from trezor.ui.mnemonic import MnemonicKeyboard
 from trezor.ui.text import Text
 from trezor.ui.word_select import WordSelector
-from trezor.utils import format_ordinal
+from trezor.utils import consteq, format_ordinal
 
-from apps.common import storage
+from apps.common import mnemonic, storage
 from apps.common.confirm import require_confirm
-from apps.management.change_pin import request_pin_confirm
+from apps.management.change_pin import request_pin_ack, request_pin_confirm
 
 
 async def recovery_device(ctx, msg):
@@ -32,35 +33,50 @@ async def recovery_device(ctx, msg):
     if not msg.dry_run and storage.is_initialized():
         raise wire.UnexpectedMessage("Already initialized")
 
-    text = Text("Device recovery", ui.ICON_RECOVERY)
-    text.normal("Do you really want to", "recover the device?", "")
+    if not msg.dry_run:
+        title = "Device recovery"
+        text = Text(title, ui.ICON_RECOVERY)
+        text.normal("Do you really want to", "recover the device?", "")
+    else:
+        title = "Simulated recovery"
+        text = Text(title, ui.ICON_RECOVERY)
+        text.normal("Do you really want to", "check the recovery", "seed?")
 
     await require_confirm(ctx, text, code=ProtectCall)
 
+    if msg.dry_run:
+        if config.has_pin():
+            curpin = await request_pin_ack(ctx, "Enter PIN", config.get_pin_rem())
+        else:
+            curpin = ""
+        if not config.check_pin(pin_to_int(curpin)):
+            raise wire.PinInvalid("PIN invalid")
+
     # ask for the number of words
-    wordcount = await request_wordcount(ctx)
+    wordcount = await request_wordcount(ctx, title)
 
     # ask for mnemonic words one by one
-    mnemonic = await request_mnemonic(ctx, wordcount)
+    words = await request_mnemonic(ctx, wordcount)
 
     # check mnemonic validity
     if msg.enforce_wordlist or msg.dry_run:
-        if not bip39.check(mnemonic):
+        if not bip39.check(words):
             raise wire.ProcessError("Mnemonic is not valid")
 
     # ask for pin repeatedly
     if msg.pin_protection:
         newpin = await request_pin_confirm(ctx, cancellable=False)
-
-    # save into storage
-    if not msg.dry_run:
-        if msg.pin_protection:
-            config.change_pin(pin_to_int(""), pin_to_int(newpin))
-        storage.load_settings(label=msg.label, use_passphrase=msg.passphrase_protection)
-        storage.load_mnemonic(mnemonic=mnemonic, needs_backup=False, no_backup=False)
-        return Success(message="Device recovered")
     else:
-        if storage.get_mnemonic() == mnemonic:
+        newpin = ""
+
+    secret = mnemonic.process([words], mnemonic.TYPE_BIP39)
+
+    # dry run
+    if msg.dry_run:
+        digest_input = sha256(secret).digest()
+        stored, _ = mnemonic.get()
+        digest_stored = sha256(stored).digest()
+        if consteq(digest_stored, digest_input):
             return Success(
                 message="The seed is valid and matches the one in the device"
             )
@@ -69,12 +85,26 @@ async def recovery_device(ctx, msg):
                 "The seed is valid but does not match the one in the device"
             )
 
+    # save into storage
+    if newpin:
+        config.change_pin(pin_to_int(""), pin_to_int(newpin))
+    storage.set_u2f_counter(msg.u2f_counter)
+    storage.load_settings(label=msg.label, use_passphrase=msg.passphrase_protection)
+    storage.store_mnemonic(
+        secret=secret,
+        mnemonic_type=mnemonic.TYPE_BIP39,
+        needs_backup=False,
+        no_backup=False,
+    )
+
+    return Success(message="Device recovered")
+
 
 @ui.layout
-async def request_wordcount(ctx):
+async def request_wordcount(ctx, title: str) -> int:
     await ctx.call(ButtonRequest(code=MnemonicWordCount), ButtonAck)
 
-    text = Text("Device recovery", ui.ICON_RECOVERY)
+    text = Text(title, ui.ICON_RECOVERY)
     text.normal("Number of words?")
     count = await ctx.wait(WordSelector(text))
 

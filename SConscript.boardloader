@@ -59,7 +59,6 @@ SOURCE_STMHAL = [
 
 SOURCE_BOARDLOADER = [
     'embed/boardloader/startup.s',
-    'embed/boardloader/lowlevel.c',
     'embed/boardloader/main.c',
 ]
 
@@ -67,6 +66,7 @@ SOURCE_TREZORHAL = [
     'embed/trezorhal/common.c',
     'embed/trezorhal/image.c',
     'embed/trezorhal/flash.c',
+    'embed/trezorhal/lowlevel.c',
     'embed/trezorhal/mini_printf.c',
     'embed/trezorhal/sdcard.c',
     'embed/trezorhal/stm32.c',
@@ -115,7 +115,6 @@ env.Replace(
         'embed/trezorhal',
         'embed/extmod/modtrezorui',
         'vendor/micropython/stmhal',
-        'vendor/micropython/ports/stm32',
         'vendor/micropython/lib/stm32lib/STM32F4xx_HAL_Driver/Inc',
         'vendor/micropython/lib/stm32lib/CMSIS/STM32F4xx/Include',
         'vendor/micropython/lib/cmsis/inc',

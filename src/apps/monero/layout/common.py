@@ -1,4 +1,4 @@
-from trezor import res, ui
+from trezor import res, ui, utils
 from trezor.messages import ButtonRequestType
 from trezor.ui.text import Text
 from trezor.utils import chunks
@@ -46,6 +46,9 @@ async def tx_dialog(
 
     await ctx.call(ButtonRequest(code=code), MessageType.ButtonAck)
 
+    if scroll_tuple and scroll_tuple[1] > 1:
+        content = Scrollpage(content, scroll_tuple[0], scroll_tuple[1])
+
     dialog = ConfirmDialog(
         content,
         cancel=cancel_btn,
@@ -53,9 +56,6 @@ async def tx_dialog(
         cancel_style=cancel_style,
         confirm_style=confirm_style,
     )
-    if scroll_tuple and scroll_tuple[1] > 1:
-        dialog = Scrollpage(dialog, scroll_tuple[0], scroll_tuple[1])
-
     return await ctx.wait(dialog)
 
 
@@ -114,7 +114,7 @@ async def naive_pagination(
 
 
 def format_amount(value):
-    return "%f XMR" % (value / 1000000000000)
+    return "%s XMR" % utils.format_amount(value, 12)
 
 
 def split_address(address):

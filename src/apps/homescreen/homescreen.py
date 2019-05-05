@@ -1,15 +1,18 @@
-from trezor import config, res, ui
-from trezor.ui.swipe import Swipe, degrees
+from trezor import config, io, loop, res, ui
 
 from apps.common import storage
 
 
 async def homescreen():
+    # render homescreen in dimmed mode and fade back in
+    await ui.backlight_slide(ui.BACKLIGHT_DIM)
+    display_homescreen()
+    await ui.backlight_slide(ui.BACKLIGHT_NORMAL)
+
+    # loop forever, never return
+    touch = loop.wait(io.TOUCH)
     while True:
-        await ui.backlight_slide(ui.BACKLIGHT_DIM)
-        display_homescreen()
-        await ui.backlight_slide(ui.BACKLIGHT_NORMAL)
-        await swipe_to_rotate()
+        await touch
 
 
 def display_homescreen():
@@ -49,8 +52,3 @@ def display_homescreen():
         ui.display.bar(0, 0, ui.WIDTH, ui.HEIGHT, ui.BG)
     ui.display.avatar(48, 48 - 10, image, ui.WHITE, ui.BLACK)
     ui.display.text_center(ui.WIDTH // 2, 220, label, ui.BOLD, ui.FG, ui.BG)
-
-
-async def swipe_to_rotate():
-    swipe = await Swipe(absolute=True)
-    ui.display.orientation(degrees(swipe))

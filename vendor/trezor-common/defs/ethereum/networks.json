@@ -31,7 +31,8 @@
     "rskip60": false,
     "url": "https://www.ethereum.org",
     "blockbook": [
-      "https://ropsten1.trezor.io"
+      "https://ropsten1.trezor.io",
+      "https://ropsten2.trezor.io"
     ]
   },
   {
@@ -55,6 +56,16 @@
     "blockbook": []
   },
   {
+    "chain": "meta",
+    "chain_id": 11,
+    "slip44": 916,
+    "shortcut": "META",
+    "name": "Metadium",
+    "rskip60": false,
+    "url": "https://metadium.com",
+    "blockbook": []
+  },
+  {
     "chain": "etsc",
     "chain_id": 28,
     "slip44": 1128,
@@ -68,7 +79,7 @@
     "chain": "rsk",
     "chain_id": 30,
     "slip44": 137,
-    "shortcut": "RSK",
+    "shortcut": "RBTC",
     "name": "RSK",
     "rskip60": true,
     "url": "https://www.rsk.co",
@@ -78,7 +89,7 @@
     "chain": "trsk",
     "chain_id": 31,
     "slip44": 37310,
-    "shortcut": "tRSK",
+    "shortcut": "tRBTC",
     "name": "RSK Testnet",
     "rskip60": true,
     "url": "https://www.rsk.co",
@@ -102,6 +113,16 @@
     "name": "GoChain",
     "rskip60": false,
     "url": "https://gochain.io",
+    "blockbook": []
+  },
+  {
+    "chain": "eti",
+    "chain_id": 101,
+    "slip44": 464,
+    "shortcut": "ETI",
+    "name": "EtherInc",
+    "rskip60": false,
+    "url": "https://einc.io",
     "blockbook": []
   },
   {
@@ -148,6 +169,16 @@
     "blockbook": []
   },
   {
+    "chain": "dxn",
+    "chain_id": 237,
+    "slip44": 237,
+    "shortcut": "DXN",
+    "name": "DEXON",
+    "rskip60": false,
+    "url": "https://dexon.org",
+    "blockbook": []
+  },
+  {
     "chain": "clo",
     "chain_id": 820,
     "slip44": 820,
@@ -188,6 +219,16 @@
     "blockbook": []
   },
   {
+    "chain": "reosc",
+    "chain_id": 2894,
+    "slip44": 2894,
+    "shortcut": "REOSC",
+    "name": "REOSC Ecosystem",
+    "rskip60": false,
+    "url": "https://reosc.io",
+    "blockbook": []
+  },
+  {
     "chain": "esn",
     "chain_id": 31102,
     "slip44": 31102,
@@ -205,6 +246,26 @@
     "name": "Akroma",
     "rskip60": false,
     "url": "https://akroma.io",
+    "blockbook": []
+  },
+  {
+    "chain": "artis_sigma1",
+    "chain_id": 246529,
+    "slip44": 246529,
+    "shortcut": "ATS",
+    "name": "ARTIS sigma1",
+    "rskip60": false,
+    "url": "https://artis.eco",
+    "blockbook": []
+  },
+  {
+    "chain": "artis_tau1",
+    "chain_id": 246785,
+    "slip44": 1,
+    "shortcut": "tATS",
+    "name": "ARTIS tau1",
+    "rskip60": false,
+    "url": "https://artis.eco",
     "blockbook": []
   },
   {

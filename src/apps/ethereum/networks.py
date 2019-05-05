@@ -1,6 +1,8 @@
 # generated from networks.py.mako
 # do not edit manually!
 
+from apps.common import HARDENED
+
 
 def shortcut_by_chain_id(chain_id, tx_type=None):
     if tx_type in [1, 6] and chain_id in [1, 3]:
@@ -22,6 +24,11 @@ def by_slip44(slip44):
         if n.slip44 == slip44:
             return n
     return None
+
+
+def all_slip44_ids_hardened():
+    for n in NETWORKS:
+        yield n.slip44 | HARDENED
 
 
 class NetworkInfo:
@@ -82,14 +89,14 @@ NETWORKS = [
     NetworkInfo(
         chain_id=30,
         slip44=137,
-        shortcut="RSK",
+        shortcut="RBTC",
         name="RSK",
         rskip60=True,
     ),
     NetworkInfo(
         chain_id=31,
         slip44=37310,
-        shortcut="tRSK",
+        shortcut="tRBTC",
         name="RSK Testnet",
         rskip60=True,
     ),
@@ -136,6 +143,13 @@ NETWORKS = [
         rskip60=False,
     ),
     NetworkInfo(
+        chain_id=237,
+        slip44=237,
+        shortcut="DXN",
+        name="DEXON",
+        rskip60=False,
+    ),
+    NetworkInfo(
         chain_id=820,
         slip44=820,
         shortcut="CLO",
@@ -164,6 +178,13 @@ NETWORKS = [
         rskip60=False,
     ),
     NetworkInfo(
+        chain_id=2894,
+        slip44=2894,
+        shortcut="REOSC",
+        name="REOSC Ecosystem",
+        rskip60=False,
+    ),
+    NetworkInfo(
         chain_id=31102,
         slip44=31102,
         shortcut="ESN",
@@ -175,6 +196,20 @@ NETWORKS = [
         slip44=200625,
         shortcut="AKA",
         name="Akroma",
+        rskip60=False,
+    ),
+    NetworkInfo(
+        chain_id=246529,
+        slip44=246529,
+        shortcut="ATS",
+        name="ARTIS sigma1",
+        rskip60=False,
+    ),
+    NetworkInfo(
+        chain_id=246785,
+        slip44=1,
+        shortcut="tATS",
+        name="ARTIS tau1",
         rskip60=False,
     ),
     NetworkInfo(

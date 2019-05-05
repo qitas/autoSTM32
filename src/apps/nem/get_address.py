@@ -1,15 +1,19 @@
 from trezor.messages.NEMAddress import NEMAddress
 
-from .helpers import NEM_CURVE, get_network_str
-from .validators import validate_network
-
-from apps.common import seed
 from apps.common.layout import address_n_to_str, show_address, show_qr
+from apps.common.paths import validate_path
+from apps.nem import CURVE
+from apps.nem.helpers import check_path, get_network_str
+from apps.nem.validators import validate_network
 
 
-async def get_address(ctx, msg):
+async def get_address(ctx, msg, keychain):
     network = validate_network(msg.network)
-    node = await seed.derive_node(ctx, msg.address_n, NEM_CURVE)
+    await validate_path(
+        ctx, check_path, keychain, msg.address_n, CURVE, network=network
+    )
+
+    node = keychain.derive(msg.address_n, CURVE)
     address = node.nem_address(network)
 
     if msg.show_display:

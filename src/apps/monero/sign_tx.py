@@ -6,7 +6,7 @@ from trezor.messages import MessageType
 from apps.monero.signing.state import State
 
 
-async def sign_tx(ctx, received_msg):
+async def sign_tx(ctx, received_msg, keychain):
     state = State(ctx)
     mods = utils.unimport_begin()
 
@@ -18,7 +18,7 @@ async def sign_tx(ctx, received_msg):
         gc.collect()
         gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
 
-        result_msg, accept_msgs = await sign_tx_dispatch(state, received_msg)
+        result_msg, accept_msgs = await sign_tx_dispatch(state, received_msg, keychain)
         if accept_msgs is None:
             break
 
@@ -32,13 +32,13 @@ async def sign_tx(ctx, received_msg):
     return result_msg
 
 
-async def sign_tx_dispatch(state, msg):
+async def sign_tx_dispatch(state, msg, keychain):
     if msg.MESSAGE_WIRE_TYPE == MessageType.MoneroTransactionInitRequest:
         from apps.monero.signing import step_01_init_transaction
 
         return (
             await step_01_init_transaction.init_transaction(
-                state, msg.address_n, msg.network_type, msg.tsx_data
+                state, msg.address_n, msg.network_type, msg.tsx_data, keychain
             ),
             (MessageType.MoneroTransactionSetInputRequest,),
         )
@@ -67,12 +67,7 @@ async def sign_tx_dispatch(state, msg):
 
         return (
             await step_04_input_vini.input_vini(
-                state,
-                msg.src_entr,
-                msg.vini,
-                msg.vini_hmac,
-                msg.pseudo_out,
-                msg.pseudo_out_hmac,
+                state, msg.src_entr, msg.vini, msg.vini_hmac
             ),
             (
                 MessageType.MoneroTransactionInputViniRequest,
@@ -91,11 +86,14 @@ async def sign_tx_dispatch(state, msg):
     elif msg.MESSAGE_WIRE_TYPE == MessageType.MoneroTransactionSetOutputRequest:
         from apps.monero.signing import step_06_set_output
 
+        is_offloaded_bp = bool(msg.is_offloaded_bp)
         dst, dst_hmac, rsig_data = msg.dst_entr, msg.dst_entr_hmac, msg.rsig_data
         del msg
 
         return (
-            await step_06_set_output.set_output(state, dst, dst_hmac, rsig_data),
+            await step_06_set_output.set_output(
+                state, dst, dst_hmac, rsig_data, is_offloaded_bp
+            ),
             (
                 MessageType.MoneroTransactionSetOutputRequest,
                 MessageType.MoneroTransactionAllOutSetRequest,

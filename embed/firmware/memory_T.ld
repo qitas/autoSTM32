@@ -44,6 +44,7 @@ SECTIONS {
 
   .flash2 : ALIGN(512) {
     build/firmware/frozen_mpy.o(.rodata*);
+    build/firmware/vendor/secp256k1-zkp/src/secp256k1.o(.rodata*);
     . = ALIGN(512);
   } >FLASH2 AT>FLASH2
 
@@ -53,6 +54,8 @@ SECTIONS {
     *(.text*);
     . = ALIGN(4);
     *(.rodata*);
+    . = ALIGN(4);
+    *(.bootloader*);
     . = ALIGN(512);
   } >FLASH AT>FLASH
 

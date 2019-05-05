@@ -24,5 +24,5 @@ class EthereumSignMessage(p.MessageType):
     def get_fields(cls):
         return {
             1: ('address_n', p.UVarintType, p.FLAG_REPEATED),
-            2: ('message', p.BytesType, 0),  # required
+            2: ('message', p.BytesType, 0),
         }

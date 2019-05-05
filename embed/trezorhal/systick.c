@@ -1,3 +1,5 @@
+// clang-format off
+
 /*
  * This file is part of the TREZOR project, https://trezor.io/
  *
@@ -45,9 +47,9 @@
 
 #include "py/runtime.h"
 #include "py/mphal.h"
-#include "irq.h"
-#include "systick.h"
-#include "pybthread.h"
+#include "ports/stm32/irq.h"
+#include "ports/stm32/systick.h"
+#include "ports/stm32/pybthread.h"
 
 extern __IO uint32_t uwTick;
 

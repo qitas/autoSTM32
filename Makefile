@@ -7,11 +7,8 @@ SCONS = scons -Q -j $(JOBS)
 BUILD_DIR             = build
 BOARDLOADER_BUILD_DIR = $(BUILD_DIR)/boardloader
 BOOTLOADER_BUILD_DIR  = $(BUILD_DIR)/bootloader
-PRODTEST_BUILD_DIR    = $(BUILD_DIR)/prodtest
-REFLASH_BUILD_DIR     = $(BUILD_DIR)/reflash
 FIRMWARE_BUILD_DIR    = $(BUILD_DIR)/firmware
-UNIX_BUILD_DIR        = $(BUILD_DIR)/unix
-
+PRODTEST_BUILD_DIR    = $(BUILD_DIR)/prodtest
 UNAME_S := $(shell uname -s)
 UNIX_PORT_OPTS ?=
 CROSS_PORT_OPTS ?=
@@ -39,7 +36,7 @@ CFLAGS += -DGITREV=$(GITREV)
 ## help commands:
 
 help: ## show this help
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m  make %-20s\033[0m %s\n", $$1, $$2} /^##(.*)/ {printf "\033[33m%s\n", substr($$0, 4)}' $(MAKEFILE_LIST)
+	@awk -f ./help.awk $(MAKEFILE_LIST)
 
 ## dependencies commands:
 
@@ -71,23 +68,7 @@ test_emu_monero: ## run selected monero device tests from monero-agent
 pylint: ## run pylint on application sources and tests
 	pylint -E $(shell find src tests -name *.py)
 
-## style commands:
-
-style: ## run code style check on application sources and tests
-	flake8 $(shell find src -name *.py)
-	isort --check-only $(shell find src -name *.py ! -path 'src/trezor/messages/*')
-	black --check $(shell find src -name *.py ! -path 'src/trezor/messages/*')
-
-isort:
-	isort $(shell find src -name *.py ! -path 'src/trezor/messages/*')
-
-black:
-	black $(shell find src -name *.py ! -path 'src/trezor/messages/*')
-
-cstyle: ## run code style check on low-level C code
-	./tools/clang-format-check $(shell find embed -type f -name *.[ch])
-
-## code generation ##
+## code generation:
 
 templates: ## render Mako templates (for lists of coins, tokens, etc.)
 	./tools/build_templates
@@ -97,7 +78,7 @@ templates_check: ## check that Mako-rendered files match their templates
 
 ## build commands:
 
-build: build_boardloader build_bootloader build_firmware build_prodtest build_unix ## build all
+build: build_boardloader build_bootloader build_firmware ## build_prodtest build_unix ## build all
 
 build_embed: build_boardloader build_bootloader build_firmware # build boardloader, bootloader, firmware
 
@@ -117,15 +98,6 @@ build_reflash: ## build reflash firmware + reflash image
 
 build_firmware: res build_cross ## build firmware with frozen modules
 	$(SCONS) CFLAGS="$(CFLAGS)" PRODUCTION="$(PRODUCTION)" $(FIRMWARE_BUILD_DIR)/firmware.bin
-
-build_unix: res ## build unix port
-	$(SCONS) CFLAGS="$(CFLAGS)" $(UNIX_BUILD_DIR)/micropython $(UNIX_PORT_OPTS)
-
-build_unix_noui: res ## build unix port without UI support
-	$(SCONS) CFLAGS="$(CFLAGS)" $(UNIX_BUILD_DIR)/micropython $(UNIX_PORT_OPTS) TREZOR_EMULATOR_NOUI=1
-
-build_unix_raspi: res ## build unix port for Raspberry Pi
-	$(SCONS) CFLAGS="$(CFLAGS)" $(UNIX_BUILD_DIR)/micropython $(UNIX_PORT_OPTS) TREZOR_EMULATOR_RASPI=1
 
 build_cross: ## build mpy-cross port
 	$(MAKE) -C vendor/micropython/mpy-cross $(CROSS_PORT_OPTS)
@@ -148,9 +120,6 @@ clean_reflash: ## clean reflash build
 
 clean_firmware: ## clean firmware build
 	rm -rf $(FIRMWARE_BUILD_DIR)
-
-clean_unix: ## clean unix build
-	rm -rf $(UNIX_BUILD_DIR)
 
 clean_cross: ## clean mpy-cross build
 	$(MAKE) -C vendor/micropython/mpy-cross clean $(CROSS_PORT_OPTS)
@@ -176,6 +145,12 @@ flash_combine: $(PRODTEST_BUILD_DIR)/combined.bin ## flash combined using OpenOC
 
 flash_erase: ## erase all sectors in flash bank 0
 	$(OPENOCD) -c "init; reset halt; flash info 0; flash erase_sector 0 0 last; flash erase_check 0; exit"
+
+flash_read_storage: ## read storage sectors from flash
+	$(OPENOCD) -c "init; flash read_bank 0 storage1.data 0x10000 65536; flash read_bank 0 storage2.data 0x110000 65536; exit"
+
+flash_erase_storage: ## erase storage sectors from flash
+	$(OPENOCD) -c "init; flash erase_sector 0 4 4; flash erase_sector 0 16 16; exit"
 
 ## openocd debug commands:
 
@@ -221,7 +196,7 @@ combine: ## combine boardloader + bootloader + prodtest into one combined image
 		$(BOARDLOADER_START) $(BOARDLOADER_BUILD_DIR)/boardloader.bin \
 		$(BOOTLOADER_START) $(BOOTLOADER_BUILD_DIR)/bootloader.bin \
 		$(PRODTEST_START) $(PRODTEST_BUILD_DIR)/prodtest.bin \
-		> $(PRODTEST_BUILD_DIR)/combined.bin \
+		> $(PRODTEST_BUILD_DIR)/combined.bin
 
 upload: ## upload firmware using trezorctl
 	trezorctl firmware_update -f $(FIRMWARE_BUILD_DIR)/firmware.bin

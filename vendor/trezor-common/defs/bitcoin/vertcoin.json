@@ -15,7 +15,7 @@
   "xprv_magic": 76066276,
   "xpub_magic": 76067358,
   "xpub_magic_segwit_p2sh": 77429938,
-  "xpub_magic_segwit_native": null,
+  "xpub_magic_segwit_native": 78792518,
   "bech32_prefix": "vtc",
   "cashaddr_prefix": null,
   "slip44": 28,
@@ -40,5 +40,6 @@
     "https://vtc4.trezor.io",
     "https://vtc5.trezor.io"
   ],
-  "cooldown": 100
+  "cooldown": 100,
+  "consensus_branch_id": null
 }

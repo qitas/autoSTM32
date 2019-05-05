@@ -19,8 +19,9 @@ def generate_digits():
 
 
 class PinMatrix(ui.Widget):
-    def __init__(self, label, pin="", maxlength=9):
+    def __init__(self, label, sublabel, pin="", maxlength=9):
         self.label = label
+        self.sublabel = sublabel
         self.pin = pin
         self.maxlength = maxlength
         self.digits = generate_digits()
@@ -34,9 +35,21 @@ class PinMatrix(ui.Widget):
         ]
         self.onchange = None
 
+    def taint(self):
+        super().taint()
+        for btn in self.pin_buttons:
+            btn.taint()
+
     def render(self):
+        # pin matrix buttons
+        for btn in self.pin_buttons:
+            btn.render()
+
+        if not self.tainted:
+            return
+
         # clear canvas under input line
-        display.bar(0, 0, ui.WIDTH, 45, ui.BG)
+        display.bar(0, 0, ui.WIDTH, 52, ui.BG)
 
         if self.pin:
             # input line with pin
@@ -48,13 +61,17 @@ class PinMatrix(ui.Widget):
             x = (box_w - l * padding) // 2
             for i in range(0, l):
                 ui.display.bar_radius(x + i * padding, y, size, size, ui.GREY, ui.BG, 4)
+        elif self.sublabel:
+            # input line with header label and sublabel
+            display.text_center(ui.WIDTH // 2, 20, self.label, ui.BOLD, ui.GREY, ui.BG)
+            display.text_center(
+                ui.WIDTH // 2, 46, self.sublabel, ui.NORMAL, ui.GREY, ui.BG
+            )
         else:
             # input line with header label
             display.text_center(ui.WIDTH // 2, 36, self.label, ui.BOLD, ui.GREY, ui.BG)
 
-        # pin matrix buttons
-        for btn in self.pin_buttons:
-            btn.render()
+        self.tainted = False
 
     def touch(self, event, pos):
         for btn in self.pin_buttons:
@@ -64,6 +81,7 @@ class PinMatrix(ui.Widget):
                 break
 
     def change(self, pin):
+        self.tainted = True
         self.pin = pin
         for btn in self.pin_buttons:
             if len(self.pin) == self.maxlength:

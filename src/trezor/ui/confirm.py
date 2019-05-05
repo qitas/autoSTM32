@@ -66,8 +66,20 @@ class HoldToConfirmDialog(Widget):
         self.button = Button(ui.grid(4, n_x=1), hold, style=button_style)
         self.loader = Loader(style=loader_style)
 
+        if content.__class__.__iter__ is not Widget.__iter__:
+            raise TypeError(
+                "HoldToConfirmDialog does not support widgets with custom event loop"
+            )
+
+    def taint(self):
+        super().taint()
+        self.button.taint()
+        self.content.taint()
+
     def render(self):
         self.button.render()
+        if not self.loader.is_active():
+            self.content.render()
 
     def touch(self, event, pos):
         button = self.button
@@ -79,8 +91,6 @@ class HoldToConfirmDialog(Widget):
             self.loader.start()
             return _STARTED
         if was_active and not is_active:
-            if isinstance(self.content, ui.LazyWidget):
-                self.content.taint()
             if self.loader.stop():
                 return CONFIRMED
             else:
@@ -90,12 +100,16 @@ class HoldToConfirmDialog(Widget):
         result = None
         while result is None or result < 0:  # _STARTED or _STOPPED
             if self.loader.is_active():
-                content_loop = self.loader
+                if __debug__:
+                    result = await loop.spawn(
+                        self.loader, super().__iter__(), confirm_signal
+                    )
+                else:
+                    result = await loop.spawn(self.loader, super().__iter__())
             else:
-                content_loop = self.content
-            confirm_loop = super().__iter__()  # default loop (render on touch)
-            if __debug__:
-                result = await loop.spawn(content_loop, confirm_loop, confirm_signal)
-            else:
-                result = await loop.spawn(content_loop, confirm_loop)
+                self.content.taint()
+                if __debug__:
+                    result = await loop.spawn(super().__iter__(), confirm_signal)
+                else:
+                    result = await super().__iter__()
         return result

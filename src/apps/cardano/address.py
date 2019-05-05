@@ -1,19 +1,78 @@
-from trezor import wire
+from trezor import log
 from trezor.crypto import base58, crc, hashlib
 
-from . import cbor
+from apps.cardano import cbor
+from apps.common import HARDENED
+from apps.common.seed import remove_ed25519_prefix
 
-from apps.common import HARDENED, seed
+
+def _encode_address_raw(address_data_encoded):
+    return base58.encode(
+        cbor.encode(
+            [cbor.Tagged(24, address_data_encoded), crc.crc32(address_data_encoded)]
+        )
+    )
 
 
-def validate_derivation_path(path: list):
-    if len(path) < 2 or len(path) > 5:
-        raise wire.ProcessError("Derivation path must be composed from 2-5 indices")
+def derive_address_and_node(keychain, path: list):
+    node = keychain.derive(path)
 
-    if path[0] != HARDENED | 44 or path[1] != HARDENED | 1815:
-        raise wire.ProcessError("This is not cardano derivation path")
+    address_payload = None
+    address_attributes = {}
 
-    return path
+    address_root = _get_address_root(node, address_payload)
+    address_type = 0
+    address_data = [address_root, address_attributes, address_type]
+    address_data_encoded = cbor.encode(address_data)
+
+    return (_encode_address_raw(address_data_encoded), node)
+
+
+def is_safe_output_address(address) -> bool:
+    """
+    Determines whether it is safe to include the address as-is as
+    a tx output, preventing unintended side effects (e.g. CBOR injection)
+    """
+    try:
+        address_hex = base58.decode(address)
+        address_unpacked = cbor.decode(address_hex)
+    except ValueError as e:
+        if __debug__:
+            log.exception(__name__, e)
+        return False
+
+    if not isinstance(address_unpacked, list) or len(address_unpacked) != 2:
+        return False
+
+    address_data_encoded = address_unpacked[0]
+
+    if not isinstance(address_data_encoded, bytes):
+        return False
+
+    return _encode_address_raw(address_data_encoded) == address
+
+
+def validate_full_path(path: list) -> bool:
+    """
+    Validates derivation path to fit 44'/1815'/a'/{0,1}/i,
+    where `a` is an account number and i an address index.
+    The max value for `a` is 20, 1 000 000 for `i`.
+    The derivation scheme v1 allowed a'/0/i only,
+    but in v2 it can be a'/1/i as well.
+    """
+    if len(path) != 5:
+        return False
+    if path[0] != 44 | HARDENED:
+        return False
+    if path[1] != 1815 | HARDENED:
+        return False
+    if path[2] < HARDENED or path[2] > 20 | HARDENED:
+        return False
+    if path[3] != 0 and path[3] != 1:
+        return False
+    if path[4] > 1000000:
+        return False
+    return True
 
 
 def _address_hash(data) -> bytes:
@@ -24,33 +83,9 @@ def _address_hash(data) -> bytes:
 
 
 def _get_address_root(node, payload):
-    extpubkey = seed.remove_ed25519_prefix(node.public_key()) + node.chain_code()
+    extpubkey = remove_ed25519_prefix(node.public_key()) + node.chain_code()
     if payload:
         payload = {1: cbor.encode(payload)}
     else:
         payload = {}
     return _address_hash([0, [0, extpubkey], payload])
-
-
-def derive_address_and_node(root_node, path: list):
-    validate_derivation_path(path)
-
-    derived_node = root_node.clone()
-
-    address_payload = None
-    address_attributes = {}
-
-    for indice in path:
-        derived_node.derive_cardano(indice)
-
-    address_root = _get_address_root(derived_node, address_payload)
-    address_type = 0
-    address_data = [address_root, address_attributes, address_type]
-    address_data_encoded = cbor.encode(address_data)
-
-    address = base58.encode(
-        cbor.encode(
-            [cbor.Tagged(24, address_data_encoded), crc.crc32(address_data_encoded)]
-        )
-    )
-    return (address, derived_node)
