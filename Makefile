@@ -39,18 +39,8 @@ CFLAGS += -DGITREV=$(GITREV)
 help: ## show this help
 	@awk -f ./make.awk $(MAKEFILE_LIST)
 
-## dependencies commands:
-
 res: ## update resources
 	./tools/res_collect
-
-## code generation:
-
-templates: ## render Mako templates (for lists of coins, tokens, etc.)
-	./tools/build_templates
-
-templates_check: ## check that Mako-rendered files match their templates
-	./tools/build_templates --check
 
 ## build commands:
 
@@ -126,7 +116,7 @@ flash_read_storage: ## read storage sectors from flash
 flash_erase_storage: ## erase storage sectors from flash
 	$(OPENOCD) -c "init; flash erase_sector 0 4 4; flash erase_sector 0 16 16; exit"
 
-## openocd debug commands:
+## openocd debug:
 
 openocd: ## start openocd which connects to the device
 	$(OPENOCD)
