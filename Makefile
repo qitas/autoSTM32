@@ -36,7 +36,7 @@ CFLAGS += -DGITREV=$(GITREV)
 ## help commands:
 
 help: ## show this help
-	@awk -f ./help.awk $(MAKEFILE_LIST)
+	@awk -f ./make.awk $(MAKEFILE_LIST)
 
 ## dependencies commands:
 
