@@ -8,6 +8,7 @@ BUILD_DIR             = build
 BOARDLOADER_BUILD_DIR = $(BUILD_DIR)/boardloader
 BOOTLOADER_BUILD_DIR  = $(BUILD_DIR)/bootloader
 FIRMWARE_BUILD_DIR    = $(BUILD_DIR)/firmware
+REFLASH_BUILD_DIR     = $(BUILD_DIR)/reflash
 PRODTEST_BUILD_DIR    = $(BUILD_DIR)/prodtest
 UNAME_S := $(shell uname -s)
 UNIX_PORT_OPTS ?=
@@ -40,33 +41,8 @@ help: ## show this help
 
 ## dependencies commands:
 
-vendor: ## update git submodules
-	git submodule update --init --recursive --force
-
 res: ## update resources
 	./tools/res_collect
-
-## emulator commands:
-
-run: ## run unix port
-	cd src ; ../$(UNIX_BUILD_DIR)/micropython
-
-emu: ## run emulator
-	./emu.sh
-
-## test commands:
-
-test: ## run unit tests
-	cd tests ; ./run_tests.sh $(TESTOPTS)
-
-test_emu: ## run selected device tests from python-trezor
-	cd tests ; ./run_tests_device_emu.sh $(TESTOPTS)
-
-test_emu_monero: ## run selected monero device tests from monero-agent
-	cd tests ; ./run_tests_device_emu_monero.sh $(TESTOPTS)
-
-pylint: ## run pylint on application sources and tests
-	pylint -E $(shell find src tests -name *.py)
 
 ## code generation:
 
@@ -78,9 +54,7 @@ templates_check: ## check that Mako-rendered files match their templates
 
 ## build commands:
 
-build: build_boardloader build_bootloader build_firmware ## build_prodtest build_unix ## build all
-
-build_embed: build_boardloader build_bootloader build_firmware # build boardloader, bootloader, firmware
+build: build_boardloader build_bootloader build_firmware build_prodtest  ## build_unix ## build all
 
 build_boardloader: ## build boardloader
 	$(SCONS) CFLAGS="$(CFLAGS)" PRODUCTION="$(PRODUCTION)" $(BOARDLOADER_BUILD_DIR)/boardloader.bin
