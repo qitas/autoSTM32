@@ -1,0 +1,71 @@
+#!/bin/bash
+WorkPath=`pwd`
+
+## Root Password
+for ((i = 0; i < 5; i++)); do
+	PASSWD=$(whiptail --title "STM32 Config System" \
+		--passwordbox "Enter root password. Don't use root or sudo run it" \
+		10 60 3>&1 1>&2 2>&3)
+	if [ $i = "4" ]; then
+		whiptail --title "Note Qitas" --msgbox "Invalid password" 10 40 0	
+		exit 0
+	fi
+
+	sudo -k
+	if sudo -lS &> /dev/null << EOF
+$PASSWD
+EOF
+	then
+		i=10
+	else
+		whiptail --title "STM32 Config System" --msgbox "Invalid password, Pls input corrent password" \
+		10 40 0	--cancel-button Exit --ok-button Retry
+	fi
+done
+
+echo $PASSWD | sudo ls &> /dev/null 2>&1
+
+function apt_install()
+{
+	sudo apt install -y scons gcc-multilib openocd
+	sudo apt install -y gcc-arm-none-eabi libnewlib-arm-none-eabi python3-pip
+	pip3 install --no-cache-dir click pyblake2 scons
+	pip3 install --upgrade setuptools
+	pip3 install trezor
+}
+
+
+
+OPTION=$(whiptail --title "STM32 Config System" \
+	--menu "$MENUSTR" 20 60 12 --cancel-button Finish --ok-button Select \
+	"0"   "AUTO" \
+	"1"   "MAKE" \
+	"2"   "DOWN" \
+	3>&1 1>&2 2>&3)
+	
+
+if [ $OPTION = '0' ]; then
+	clear
+	echo -e "AUTO all\n${Line}"
+	apt_install
+	make build
+	exit 0
+elif [ $OPTION = '1' ]; then
+	clear
+	echo -e "MAKE\n${Line}"
+	make build
+	exit 0
+elif [ $OPTION = '2' ]; then
+	clear
+	echo -e "DOWN\n${Line}"
+	./emu.sh
+	exit 0
+else
+	whiptail --title "STM32 Config System" \
+		--msgbox "Please select correct option" 10 50 0
+	exit 0
+fi
+
+
+
+exit 0
