@@ -1,14 +1,7 @@
-# [makeSTM](https://github.com/qitas/makeSTM) 
-### qitas@qitas.cn
+# [autoSTM32](https://github.com/qitas/autoSTM32) 
 
-### [描述](https://github.com/qitas/makeSTM/wiki) 
+大型项目scons构建模板，基于trezor设备代码定制裁减得来，修改成可用的标准大项目模板。
 
-基于STM Makefile project
+[![sites](http://182.61.61.133/link/resources/head.png)](http://www.qitas.cn) 
 
-
-
-### 锻造最美之器
-[![sites](qitas/qitas.png)](http://www.qitas.cn)
-
-
-
+## 锻造最美之器

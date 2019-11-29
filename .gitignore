@@ -1,2 +1,11 @@
-
-/STM32
+.attic/
+.cache/
+.venv/
+.idea/
+.vscode/
+__pycache__/
+*.pyc
+/build
+build/
+proto.gv*
+.sconsign.dblite
